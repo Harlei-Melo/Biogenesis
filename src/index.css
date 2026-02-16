@@ -1,0 +1,27 @@
+/* src/index.css */
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: dark; /* Força o modo escuro no scrollbar */
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #000000; /* O Vácuo */
+  overflow: hidden; /* Remove barras de rolagem para imersão total */
+  user-select: none; /* Impede que o usuário selecione textos sem querer */
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+canvas {
+  touch-action: none; /* Importante para controles mobile funcionarem bem */
+  outline: none; /* Remove borda azul de foco */
+}
