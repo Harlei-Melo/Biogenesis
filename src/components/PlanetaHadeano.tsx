@@ -3,85 +3,117 @@ import { useFrame } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
 
-export function PlanetaHadeano() {
+import { crustHeader, crustMapLogic, crustEmissiveLogic, crustRoughnessLogic } from "../shaders/hadean/crust";
+
+interface PlanetaProps {
+  evolucao: number; // Recebe de 0.0 (Inferno) a 1.0 (Oceano)
+}
+
+export function PlanetaHadeano({ evolucao }: PlanetaProps) {
   const superficieRef = useRef<THREE.Mesh>(null!);
-  const nuvensRef = useRef<THREE.Mesh>(null!);
+  const nuvensRef1 = useRef<THREE.Mesh>(null!);
+  const nuvensRef2 = useRef<THREE.Mesh>(null!);
   const atmosferaRef = useRef<THREE.Mesh>(null!);
 
-  // Carrega as texturas
-  const [lavaDiff, lavaNor, lavaRough, lavaDisp, lavaEmit, nuvensMap] =
-    useTexture([
-      "/textures/Lava002_4K-JPG/volcanic_diff.jpg",
-      "/textures/Lava002_4K-JPG/volcanic_nor.jpg",
-      "/textures/Lava002_4K-JPG/volcanic_rough.jpg",
-      "/textures/Lava002_4K-JPG/volcanic_disp.jpg",
-      "/textures/Lava002_4K-JPG/volcanic_emissive.jpg",
-      "/textures/clouds.jpg", // Certifique-se que esta imagem tem fundo PRETO (padrão Solar System Scope)
-    ]);
+  const [lavaDiff, lavaNor, lavaRough, lavaDisp, lavaEmit, nuvensMap] = useTexture([
+    "/textures/Lava002_4K-JPG/volcanic_diff.jpg",
+    "/textures/Lava002_4K-JPG/volcanic_nor.jpg",
+    "/textures/Lava002_4K-JPG/volcanic_rough.jpg",
+    "/textures/Lava002_4K-JPG/volcanic_disp.jpg",
+    "/textures/Lava002_4K-JPG/volcanic_emissive.jpg",
+    "/textures/clouds.jpg", 
+  ]);
 
-  // Configura repetição da lava
   [lavaDiff, lavaNor, lavaRough, lavaDisp, lavaEmit].forEach((t) => {
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(2, 2);
+    t.repeat.set(6, 6); 
   });
 
-  useFrame((state) => {
+  const onBeforeCompile = (shader: any) => {
+    shader.uniforms.uTime = { value: 0 };
+    shader.uniforms.uEvolution = { value: 0 }; // Inicia no Hadeano
+
+    superficieRef.current.userData.shader = shader;
+
+    shader.fragmentShader = crustHeader + shader.fragmentShader;
+    shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', crustMapLogic);
+    shader.fragmentShader = shader.fragmentShader.replace('#include <emissivemap_fragment>', crustEmissiveLogic);
+    shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', crustRoughnessLogic);
+  };
+
+  useFrame((state, delta) => {
     const t = state.clock.getElapsedTime();
 
-    // Rotação da superfície
-    if (superficieRef.current) superficieRef.current.rotation.y = t * 0.05;
+    if (superficieRef.current?.userData.shader) {
+      const shader = superficieRef.current.userData.shader;
+      shader.uniforms.uTime.value = t;
+      
+      // --- LIGAÇÃO COM O JOGO ---
+      // Pegamos o valor atual do shader e movemos suavemente em direção ao valor da prop 'evolucao'
+      // O fator 'delta * 1.0' define a velocidade da transição visual (suavidade)
+      const currentEvo = shader.uniforms.uEvolution.value;
+      shader.uniforms.uEvolution.value = THREE.MathUtils.lerp(currentEvo, evolucao, delta * 1.5);
+    }
 
-    // Rotação das Nuvens (Camada separada)
-    if (nuvensRef.current) {
-      nuvensRef.current.rotation.y = t * 0.07;
-      nuvensRef.current.rotation.x = Math.sin(t * 0.2) * 0.05;
+    if (superficieRef.current) superficieRef.current.rotation.y = t * 0.01;
+    
+    // Pegamos o valor REAL do shader (já suavizado) para aplicar nas nuvens e atmosfera
+    const currentVisuEvo = superficieRef.current?.userData.shader?.uniforms.uEvolution.value || 0;
+    
+    // Nuvens: Mudam de cor conforme esfria
+    if (nuvensRef1.current) {
+      nuvensRef1.current.rotation.y = t * 0.02;
+      const corHadeana = new THREE.Color("#552200");
+      const corTerra = new THREE.Color("#ffffff");
+      // @ts-ignore
+      nuvensRef1.current.material.color.lerpColors(corHadeana, corTerra, currentVisuEvo);
+      // @ts-ignore
+      nuvensRef1.current.material.opacity = 0.6 + (currentVisuEvo * 0.2); 
+    }
+
+    if (nuvensRef2.current) {
+      nuvensRef2.current.rotation.y = t * 0.025 + 2;
+      const corHadeana = new THREE.Color("#ff6600");
+      const corTerra = new THREE.Color("#ffffff");
+      // @ts-ignore
+      nuvensRef2.current.material.color.lerpColors(corHadeana, corTerra, currentVisuEvo);
+    }
+    
+    // Atmosfera: De Laranja Tóxico para Azul Oxigênio
+    if (atmosferaRef.current) {
+       const corHadeana = new THREE.Color("#ff2200");
+       const corTerra = new THREE.Color("#0066ff");
+       // @ts-ignore
+       atmosferaRef.current.material.color.lerpColors(corHadeana, corTerra, currentVisuEvo);
     }
   });
 
   return (
     <group scale={2.5}>
-      {/* 1. PLANETA (ROCHA E LAVA) */}
       <mesh ref={superficieRef}>
-        <sphereGeometry args={[1, 128, 128]} />
+        <sphereGeometry args={[1, 256, 256]} />
         <meshStandardMaterial
-          map={lavaDiff}
-          normalMap={lavaNor}
-          roughnessMap={lavaRough}
-          displacementMap={lavaDisp}
-          displacementScale={0.08} // Reduzi levemente para não atravessar as nuvens
-          emissiveMap={lavaEmit}
-          emissive="#ff5500"
-          emissiveIntensity={2}
-          metalness={0.2}
+          map={lavaDiff} normalMap={lavaNor} roughnessMap={lavaRough}
+          displacementMap={lavaDisp} displacementScale={0.12} 
+          emissiveMap={lavaEmit} emissive="#000000"
+          metalness={0.2} roughness={0.9}
+          onBeforeCompile={onBeforeCompile}
         />
       </mesh>
 
-      {/* 2. NUVENS (ADDITIVE BLENDING - O SEGREDINHO) */}
-      <mesh ref={nuvensRef} scale={[1.05, 1.05, 1.05]}>
-        {" "}
-        {/* Afastei mais da superfície */}
+      <mesh ref={nuvensRef1} scale={[1.04, 1.04, 1.04]}>
         <sphereGeometry args={[1, 64, 64]} />
-        <meshBasicMaterial
-          map={nuvensMap} // Usamos o MAP normal para pegar os detalhes da imagem
-          transparent={true}
-          opacity={0.6} // Controle a intensidade aqui
-          color="#ffffff" // Branco para nuvens de vapor puro
-          blending={THREE.AdditiveBlending} // O preto vira transparente, o branco brilha
-          side={THREE.DoubleSide}
-          depthWrite={false} // Importante para não bugar a renderização
-        />
+        <meshBasicMaterial map={nuvensMap} transparent opacity={0.6} color="#552200" blending={THREE.AdditiveBlending} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
-
-      {/* 3. ATMOSFERA (HALO) */}
-      <mesh ref={atmosferaRef} scale={[1.1, 1.1, 1.1]}>
+      
+      <mesh ref={nuvensRef2} scale={[1.08, 1.08, 1.08]}>
+        <sphereGeometry args={[1, 64, 64]} />
+        <meshBasicMaterial map={nuvensMap} transparent opacity={0.3} color="#ff6600" blending={THREE.AdditiveBlending} side={THREE.DoubleSide} depthWrite={false} />
+      </mesh>
+      
+      <mesh ref={atmosferaRef} scale={[1.15, 1.15, 1.15]}>
         <sphereGeometry args={[1, 32, 32]} />
-        <meshBasicMaterial
-          color="#bad9ff"
-          transparent
-          opacity={0.09}
-          side={THREE.BackSide}
-          blending={THREE.AdditiveBlending}
-        />
+        <meshBasicMaterial color="#ff2200" transparent opacity={0.1} side={THREE.BackSide} blending={THREE.AdditiveBlending} />
       </mesh>
     </group>
   );
