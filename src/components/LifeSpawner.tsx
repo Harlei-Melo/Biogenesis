@@ -25,6 +25,7 @@ export function LifeSpawner() {
                     scale={0.35}
                     speed={2.5}
                     range={25}
+                    yawOverride={0}
                 />
             )}
 
@@ -57,6 +58,7 @@ export function LifeSpawner() {
                         scale={0.35}
                         speed={3.2}
                         range={40}
+                        yawOverride={0}
                     />
                     <AnimatedFishSwarm
                         modelPath="/models/clown_fish_low_poly_animated.glb"

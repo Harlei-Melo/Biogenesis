@@ -30,6 +30,7 @@ interface FishProps {
     scale: number;
     speed: number;
     range: number;
+    yawOverride?: number;
     initialPosition: THREE.Vector3;
 }
 
@@ -39,6 +40,8 @@ export interface AnimatedFishSwarmProps {
     scale?: number;
     speed?: number;
     range?: number;
+    /** Optional: override auto-detected yaw correction (radians). */
+    yawOverride?: number;
 }
 
 // Swim / idle animation names found across common GLB conventions
@@ -85,7 +88,7 @@ function computeModelYawCorrection(root: THREE.Object3D): number {
 // ─── Single Animated Fish ─────────────────────────────────────────────────────
 
 function AnimatedFish({
-    modelPath, scale, speed, range, initialPosition,
+    modelPath, scale, speed, range, yawOverride, initialPosition,
 }: FishProps) {
     const groupRef = useRef<THREE.Group>(null!);
     const { scene, animations } = useGLTF(modelPath);
@@ -93,7 +96,7 @@ function AnimatedFish({
     // ── Clone + auto-detect forward correction ──────────────────────────────
     const { clonedScene, yawCorrection } = useMemo(() => {
         const s = skeletonClone(scene) as THREE.Group;
-        const yaw = computeModelYawCorrection(s);
+        const yaw = yawOverride !== undefined ? yawOverride : computeModelYawCorrection(s);
 
         s.traverse((node: THREE.Object3D) => {
             if ((node as THREE.Mesh).isMesh) {
@@ -269,6 +272,7 @@ export function AnimatedFishSwarm({
     scale = 0.3,
     speed = 2,
     range = 25,
+    yawOverride,
 }: AnimatedFishSwarmProps) {
     const positions = useMemo(
         () => Array.from({ length: count }, () =>
@@ -291,6 +295,7 @@ export function AnimatedFishSwarm({
                     scale={scale}
                     speed={speed * (0.9 + Math.random() * 0.2)}
                     range={range}
+                    yawOverride={yawOverride}
                     initialPosition={pos}
                 />
             ))}
