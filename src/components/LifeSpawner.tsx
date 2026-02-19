@@ -1,11 +1,17 @@
 import { useGameStore } from '../store/gameStore';
 import { AnimatedFishSwarm } from './AnimatedFish';
+import { OceanFlora } from './OceanFlora';
+import { JellyfishSwarm } from './JellyfishSwarm';
 
 /**
- * LifeSpawner — Progressive fish population based on evolution stage.
+ * LifeSpawner — Progressive ecosystem based on evolution stage.
  *
- * Forward-axis correction is now automatic per-model via bounding box
- * analysis in AnimatedFish.tsx — no manual yawOffset/modelRotation needed.
+ * Coordinates all living elements:
+ *  • OceanFlora: stromatolites, seaweed, sponges, corals, kelp
+ *  • Fish: AnimatedFishSwarm (multiple species)
+ *  • Jellyfish: JellyfishSwarm
+ *
+ * Forward-axis correction for fish is automatic via bounding box analysis.
  */
 export function LifeSpawner() {
     const stage = useGameStore((state) => state.stage);
@@ -17,6 +23,9 @@ export function LifeSpawner() {
 
     return (
         <group>
+            {/* ── Flora do fundo do mar (progressiva) ──────────────────────── */}
+            <OceanFlora />
+
             {/* ── RNA: Primeiros seres — pequenos, primitivos ──────────────── */}
             {atLeast('RNA') && (
                 <AnimatedFishSwarm
@@ -45,6 +54,16 @@ export function LifeSpawner() {
                         scale={0.4}
                         speed={2.2}
                         range={30}
+                    />
+                    {/* Primeiras águas-vivas */}
+                    <JellyfishSwarm
+                        modelPath="/models/jellyfish.glb"
+                        count={3}
+                        scale={0.4}
+                        speed={0.3}
+                        range={22}
+                        yMin={3}
+                        yMax={10}
                     />
                 </>
             )}
@@ -80,6 +99,16 @@ export function LifeSpawner() {
                         scale={0.8}
                         speed={1.8}
                         range={45}
+                    />
+                    {/* Mais águas-vivas */}
+                    <JellyfishSwarm
+                        modelPath="/models/jellyfish.glb"
+                        count={5}
+                        scale={0.5}
+                        speed={0.35}
+                        range={30}
+                        yMin={4}
+                        yMax={14}
                     />
                 </>
             )}

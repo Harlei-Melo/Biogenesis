@@ -3,7 +3,13 @@
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color-scheme: dark; /* Força o modo escuro no scrollbar */
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
@@ -11,9 +17,14 @@ body {
   padding: 0;
   width: 100vw;
   height: 100vh;
-  background-color: #000000; /* O Vácuo */
-  overflow: hidden; /* Remove barras de rolagem para imersão total */
-  user-select: none; /* Impede que o usuário selecione textos sem querer */
+  /* Safe area for notched phones */
+  height: 100dvh;
+  background-color: #000000;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  /* Prevent pull-to-refresh on mobile */
+  overscroll-behavior: none;
 }
 
 #root {
@@ -22,6 +33,58 @@ body {
 }
 
 canvas {
-  touch-action: none; /* Importante para controles mobile funcionarem bem */
-  outline: none; /* Remove borda azul de foco */
+  touch-action: none;
+  outline: none;
+  display: block;
+}
+
+/* ── Mobile slider styling ─────────────────────────────────────────────────── */
+/* Bigger thumb for touch */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #00ff88;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+  margin-top: -7px;
+  /* Larger hit area on mobile */
+  box-shadow: 0 0 0 4px rgba(0, 255, 136, 0.15);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  border: none;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #00ff88;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 4px rgba(0, 255, 136, 0.15);
+}
+
+/* ── Prevent iOS double-tap zoom on interactive elements ───────────────────── */
+button,
+label,
+input {
+  touch-action: manipulation;
 }
