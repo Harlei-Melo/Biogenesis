@@ -5,10 +5,10 @@ import { AnimatedFishSwarm } from './AnimatedFish';
  * LifeSpawner — Progressive fish population based on evolution stage.
  *
  * Models available (all confirmed animated):
- *   animated_low_poly_fish.glb     ~96 KB  — peixe primitivo low-poly
- *   clown_fish_low_poly_animated.glb ~192 KB — palhaço (melhor modelo: swim + idle + bite)
- *   fish_rainbow_animated.glb      ~2.8 MB  — peixe colorido arco-íris
- *   emperor_angelfish_update.glb   ~8.4 MB  — peixe anjo imperial (22 animações, usar count baixo)
+ *   animated_low_poly_fish.glb     ~96 KB  — peixe primitivo low-poly  (faces +X → offset -π/2)
+ *   clown_fish_low_poly_animated.glb ~192 KB — palhaço                (faces -Z → offset π)
+ *   fish_rainbow_animated.glb      ~2.8 MB  — peixe colorido arco-íris (faces +X → offset -π/2)
+ *   emperor_angelfish_update.glb   ~8.4 MB  — peixe anjo imperial     (faces -Z → offset π)
  */
 export function LifeSpawner() {
     const stage = useGameStore((state) => state.stage);
@@ -30,7 +30,7 @@ export function LifeSpawner() {
                         scale={0.35}
                         speed={2.5}
                         range={25}
-                        modelRotation={[0, Math.PI / 2, 0]}
+                        yawOffset={-Math.PI / 2}
                     />
                 </>
             )}
@@ -45,7 +45,7 @@ export function LifeSpawner() {
                         scale={0.25}
                         speed={3.0}
                         range={28}
-                        modelRotation={[0, Math.PI, 0]}
+                        yawOffset={Math.PI}
                     />
                     {/* Peixe arco-íris — mais colorido, nível intermediário */}
                     <AnimatedFishSwarm
@@ -54,7 +54,7 @@ export function LifeSpawner() {
                         scale={0.4}
                         speed={2.2}
                         range={30}
-                        modelRotation={[0, Math.PI / 2, 0]}
+                        yawOffset={-Math.PI / 2}
                     />
                 </>
             )}
@@ -69,7 +69,7 @@ export function LifeSpawner() {
                         scale={0.35}
                         speed={3.2}
                         range={40}
-                        modelRotation={[0, Math.PI / 2, 0]}
+                        yawOffset={-Math.PI / 2}
                     />
                     {/* Cardume de palhaços maior */}
                     <AnimatedFishSwarm
@@ -78,7 +78,7 @@ export function LifeSpawner() {
                         scale={0.28}
                         speed={3.5}
                         range={38}
-                        modelRotation={[0, Math.PI, 0]}
+                        yawOffset={Math.PI}
                     />
                     {/* Arco-íris — destaque visual do fundo do mar */}
                     <AnimatedFishSwarm
@@ -87,7 +87,7 @@ export function LifeSpawner() {
                         scale={0.45}
                         speed={2.8}
                         range={42}
-                        modelRotation={[0, Math.PI / 2, 0]}
+                        yawOffset={-Math.PI / 2}
                     />
                     {/* Peixe anjo imperial — raro, peixe premium da fase final */}
                     <AnimatedFishSwarm
@@ -96,7 +96,7 @@ export function LifeSpawner() {
                         scale={0.8}
                         speed={1.8}
                         range={45}
-                        modelRotation={[0, Math.PI, 0]}
+                        yawOffset={Math.PI}
                     />
                 </>
             )}
