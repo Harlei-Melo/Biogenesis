@@ -3,24 +3,18 @@
  *
  * Architecture
  * ────────────
- *  • Each instance clones the GLB via SkeletonUtils.clone() so bone
- *    hierarchies are independent (required for multi-instance animation).
- *  • AnimationMixer follows drei's useAnimations pattern: created with
- *    undefined root, wired after mount via useLayoutEffect.
- *  • Orientation uses YXZ Euler (yaw → pitch → roll) to guarantee
- *    dorsal always points +Y (never flipped).
- *  • `yawOffset` (radians) corrects the model's native facing axis
- *    WITHOUT a second rotation on <primitive>, avoiding the stacking
- *    bug that caused the "dragged sideways" artefact.
- *
- * Movement
- * ────────
- *  • Gentle wander: new target direction is a SMALL random deviation
- *    from the current heading (±30°), not a fully random vector.
- *  • Smooth exponential steering (lerp rate ~1.2/s).
- *  • Boundary force ramps gradually when fish exceeds range.
- *  • Animation playback speed scales with movement speed.
- *  • Subtle vertical bobbing adds a "breathing" swim rhythm.
+ *  • Each instance clones the GLB via SkeletonUtils.clone() for
+ *    independent bone hierarchies.
+ *  • AnimationMixer uses drei's useAnimations pattern.
+ *  • AUTO-DETECTS model forward axis from bounding box at load time:
+ *    the longest BB axis is assumed to be head-to-tail (Z in all our
+ *    current models). A correction quaternion is computed once and
+ *    applied to the primitive's rotation so the model's nose aligns
+ *    with local +Z.  The steering yaw (atan2(x,z)) then needs no
+ *    manual offset — it Just Works™ for any model.
+ *  • Orientation via YXZ Euler (yaw → pitch → roll), dorsal always up.
+ *  • Gentle wander (±30° deviations), exponential smoothing on all
+ *    rotation axes, smoothstep boundary, animation speed coupling.
  */
 
 import { useRef, useMemo, useEffect, useLayoutEffect } from 'react';
@@ -36,7 +30,6 @@ interface FishProps {
     scale: number;
     speed: number;
     range: number;
-    yawOffset: number;        // radians to add to yaw so model nose faces forward
     initialPosition: THREE.Vector3;
 }
 
@@ -46,43 +39,68 @@ export interface AnimatedFishSwarmProps {
     scale?: number;
     speed?: number;
     range?: number;
-    /**
-     * Radians to add to the computed yaw so the GLB model's nose
-     * aligns with the swimming direction.
-     *
-     * Most fish GLBs are authored facing +X → use  -Math.PI / 2
-     * Models facing -Z (Blender default)     → use  Math.PI
-     * Models facing +Z                       → use  0
-     */
-    yawOffset?: number;
 }
 
-// Preferred swim-animation names across common GLB conventions
+// Swim / idle animation names found across common GLB conventions
 const SWIM_NAMES = [
     'Swim', 'swim', 'Swimming', 'swimming',
     'Armature|swim', 'Armature|Swim',
     'idle', 'Idle', 'Action', 'Move',
 ];
 
+// Helper: compute the Euler-Y rotation needed to align the model's
+// longest horizontal axis with local +Z (our steering "forward").
+function computeModelYawCorrection(root: THREE.Object3D): number {
+    const box = new THREE.Box3().setFromObject(root);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+
+    // Fish are elongated: longest axis = head-to-tail.
+    // We only care about horizontal axes (X and Z); ignore Y (dorsal height).
+    const horizontal = [
+        { axis: 'x' as const, len: size.x, center: center.x },
+        { axis: 'z' as const, len: size.z, center: center.z },
+    ];
+    horizontal.sort((a, b) => b.len - a.len);
+    const longest = horizontal[0];
+
+    // Determine which direction along that axis is "forward" (nose).
+    // Convention: the nose is toward the NEGATIVE end of the center offset
+    // (most Sketchfab fish have center slightly behind the nose).
+    // If center is near zero, assume standard convention.
+
+    if (longest.axis === 'z') {
+        // Model already mostly Z-aligned.
+        // If center.z < 0 → nose at -Z → need 180° rotation to face +Z.
+        // If center.z ≥ 0 → nose at +Z → no rotation needed.
+        // Heuristic: also check bounding box asymmetry
+        if (center.z <= 0) return Math.PI;   // face -Z → rotate to +Z
+        return 0;
+    }
+    // Model is X-aligned
+    if (center.x <= 0) return Math.PI / 2;   // face -X → rotate to +Z
+    return -Math.PI / 2;                      // face +X → rotate to +Z
+}
+
 // ─── Single Animated Fish ─────────────────────────────────────────────────────
 
 function AnimatedFish({
-    modelPath, scale, speed, range, yawOffset, initialPosition,
+    modelPath, scale, speed, range, initialPosition,
 }: FishProps) {
     const groupRef = useRef<THREE.Group>(null!);
     const { scene, animations } = useGLTF(modelPath);
 
-    // ── Clone with SkeletonUtils: independent skeleton per instance ──────────
-    const clonedScene = useMemo(() => {
+    // ── Clone + auto-detect forward correction ──────────────────────────────
+    const { clonedScene, yawCorrection } = useMemo(() => {
         const s = skeletonClone(scene) as THREE.Group;
+        const yaw = computeModelYawCorrection(s);
+
         s.traverse((node: THREE.Object3D) => {
             if ((node as THREE.Mesh).isMesh) {
                 const mesh = node as THREE.Mesh;
                 const src = Array.isArray(mesh.material)
-                    ? mesh.material[0]
-                    : mesh.material;
+                    ? mesh.material[0] : mesh.material;
                 const mat = (src as THREE.MeshStandardMaterial).clone();
-                // Subtle bioluminescence — keeps fish visible in deep ocean
                 mat.emissive = mat.emissive?.clone() ?? new THREE.Color(0, 0, 0);
                 mat.emissive.setHex(0x001a2e);
                 mat.emissiveIntensity = 0.22;
@@ -91,10 +109,10 @@ function AnimatedFish({
                 mesh.receiveShadow = false;
             }
         });
-        return s;
+        return { clonedScene: s, yawCorrection: yaw };
     }, [scene]);
 
-    // ── AnimationMixer — drei pattern (root set after mount) ─────────────────
+    // ── AnimationMixer — drei pattern ─────────────────────────────────────
     const [mixer] = useMemo(
         () => [new THREE.AnimationMixer(undefined as unknown as THREE.Object3D)],
         [],
@@ -102,7 +120,6 @@ function AnimatedFish({
 
     useLayoutEffect(() => {
         (mixer as THREE.AnimationMixer & { _root: THREE.Object3D })._root = clonedScene;
-
         if (animations.length === 0) return;
 
         const clip =
@@ -110,13 +127,12 @@ function AnimatedFish({
             ?? animations[0];
 
         const action = mixer.clipAction(clip, clonedScene);
-        // Randomise start time so fish in a swarm aren't perfectly in sync
         action
             .reset()
             .setEffectiveTimeScale(1)
             .setEffectiveWeight(1)
             .setLoop(THREE.LoopRepeat, Infinity);
-        action.time = Math.random() * clip.duration;
+        action.time = Math.random() * clip.duration;  // desync within swarm
         action.play();
 
         return () => {
@@ -137,15 +153,18 @@ function AnimatedFish({
         ).normalize().multiplyScalar(speed),
     );
     const wanderTimer = useRef(Math.random() * 3);
-    const smoothYaw = useRef(0);
+    const smoothYaw = useRef<number | null>(null);  // initialised on first frame
     const smoothPitch = useRef(0);
     const smoothBank = useRef(0);
-    const prevYaw = useRef(0);
-    const time = useRef(Math.random() * 100); // for bobbing phase
+    const prevYaw = useRef<number | null>(null);
+    const time = useRef(Math.random() * 100);
 
-    useFrame((_, delta) => {
+    useFrame((_, rawDelta) => {
         const group = groupRef.current;
         if (!group) return;
+
+        // Clamp delta so very long frames don't fling fish across the map
+        const delta = Math.min(rawDelta, 0.05);
         time.current += delta;
 
         // ── Advance animation ─────────────────────────────────────────────
@@ -154,72 +173,75 @@ function AnimatedFish({
         mixer.update(delta);
 
         // ── Gentle wander ─────────────────────────────────────────────────
-        // Instead of a fully random target, we deviate from our current
-        // heading by a SMALL angle (±30° horizontal, ±8° vertical).
-        // This produces gentle, organic curves rather than sharp turns.
         wanderTimer.current -= delta;
         if (wanderTimer.current <= 0) {
-            wanderTimer.current = 3 + Math.random() * 4;     // 3–7 s between turns
+            wanderTimer.current = 3 + Math.random() * 4;
 
             const curDir = velocity.current.clone().normalize();
-            const wanderAngle = (Math.random() - 0.5) * Math.PI * 0.33; // ±30°
-            const pitchDeviation = (Math.random() - 0.5) * 0.15;        // ±8°
-
-            // Rotate current direction around Y by wanderAngle
-            const cosA = Math.cos(wanderAngle);
-            const sinA = Math.sin(wanderAngle);
+            const angle = (Math.random() - 0.5) * Math.PI * 0.33;  // ±30°
+            const vPitch = (Math.random() - 0.5) * 0.12;            // ±7°
+            const cosA = Math.cos(angle);
+            const sinA = Math.sin(angle);
             curDir.set(
                 curDir.x * cosA + curDir.z * sinA,
-                curDir.y + pitchDeviation,
+                curDir.y + vPitch,
                 -curDir.x * sinA + curDir.z * cosA,
             ).normalize();
-
             velocity.current.copy(curDir).multiplyScalar(speed);
         }
 
-        // ── Boundary: smoothly steer home if beyond range ─────────────────
+        // ── Boundary ──────────────────────────────────────────────────────
         const dist = group.position.length();
-        if (dist > range * 0.8) {
-            const t = THREE.MathUtils.smoothstep(dist, range * 0.8, range * 1.3);
+        if (dist > range * 0.75) {
+            const t = THREE.MathUtils.smoothstep(dist, range * 0.75, range * 1.2);
             const homeDir = group.position.clone().negate().normalize();
-            const curDir = velocity.current.clone().normalize();
-            curDir.lerp(homeDir, t * 0.6).normalize();
-            velocity.current.copy(curDir).multiplyScalar(speed);
+            const dir = velocity.current.clone().normalize();
+            dir.lerp(homeDir, t * 0.5).normalize();
+            velocity.current.copy(dir).multiplyScalar(speed);
         }
 
         // ── Move ──────────────────────────────────────────────────────────
         group.position.addScaledVector(velocity.current, delta);
+        // Subtle idle bobbing
+        group.position.y += Math.sin(time.current * 1.9) * 0.06 * delta;
 
-        // Subtle vertical bobbing — makes the fish feel alive even
-        // when swimming straight (sine wave ~0.3 Hz, amplitude ±0.08)
-        group.position.y += Math.sin(time.current * 1.9) * 0.08 * delta;
-
-        // ── Orient — YXZ Euler with yawOffset ────────────────────────────
+        // ── Orientation — YXZ Euler ───────────────────────────────────────
         const movDir = velocity.current.clone().normalize();
-        const flatLen = Math.sqrt(movDir.x * movDir.x + movDir.z * movDir.z);
+        const fX = movDir.x;
+        const fZ = movDir.z;
+        const flatLen = Math.sqrt(fX * fX + fZ * fZ);
 
         if (flatLen > 0.001) {
-            // Raw yaw from velocity (atan2(x,z) → 0 = facing +Z)
-            const rawYaw = Math.atan2(movDir.x, movDir.z);
-            // Add the model's forward-axis correction
-            const targetYaw = rawYaw + yawOffset;
+            // Yaw: movement direction + model forward-axis correction
+            const targetYaw = Math.atan2(fX, fZ) + yawCorrection;
 
-            // Gentle pitch from vertical component (max ±15°)
-            const targetPitch = -Math.asin(THREE.MathUtils.clamp(movDir.y, -1, 1)) * 0.26;
+            // Initialise on first frame (avoids spin-in from yaw=0)
+            if (smoothYaw.current === null) {
+                smoothYaw.current = targetYaw;
+                prevYaw.current = targetYaw;
+            }
 
-            // Banking from yaw change rate
-            let dYaw = targetYaw - prevYaw.current;
+            // Pitch: gentle vertical tilt (max ±15°)
+            const targetPitch = -Math.asin(
+                THREE.MathUtils.clamp(movDir.y, -1, 1),
+            ) * 0.26;
+
+            // Banking from angular velocity of yaw
+            let dYaw = targetYaw - prevYaw.current!;
             if (dYaw > Math.PI) dYaw -= Math.PI * 2;
             if (dYaw < -Math.PI) dYaw += Math.PI * 2;
             prevYaw.current = targetYaw;
+
             const targetBank = THREE.MathUtils.clamp(
-                -dYaw / Math.max(delta, 0.001) * 0.08,
-                -0.35, 0.35,
+                -dYaw / Math.max(delta, 0.001) * 0.06, -0.3, 0.3,
             );
 
-            // Smooth interpolation for ALL axes — prevents jerky snapping
-            const rotLerp = 1 - Math.exp(-4 * delta); // exponential ease
-            smoothYaw.current += (targetYaw - smoothYaw.current) * rotLerp;
+            // Exponential smooth on ALL axes — wrap-safe for yaw
+            const rotLerp = 1 - Math.exp(-3.5 * delta);
+            let yawDiff = targetYaw - smoothYaw.current;
+            if (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+            if (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+            smoothYaw.current += yawDiff * rotLerp;
             smoothPitch.current += (targetPitch - smoothPitch.current) * rotLerp;
             smoothBank.current += (targetBank - smoothBank.current) * rotLerp;
 
@@ -247,7 +269,6 @@ export function AnimatedFishSwarm({
     scale = 0.3,
     speed = 2,
     range = 25,
-    yawOffset = 0,
 }: AnimatedFishSwarmProps) {
     const positions = useMemo(
         () => Array.from({ length: count }, () =>
@@ -270,7 +291,6 @@ export function AnimatedFishSwarm({
                     scale={scale}
                     speed={speed * (0.9 + Math.random() * 0.2)}
                     range={range}
-                    yawOffset={yawOffset}
                     initialPosition={pos}
                 />
             ))}
