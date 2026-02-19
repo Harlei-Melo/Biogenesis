@@ -81,8 +81,10 @@ function AnimatedFish({
     const [mixer] = useMemo(() => [new THREE.AnimationMixer(undefined as unknown as THREE.Object3D)], []);
 
     useLayoutEffect(() => {
-        // Point mixer at the cloned scene so skeleton bindings resolve correctly
-        mixer._root = clonedScene;
+        // Point mixer at the cloned scene so skeleton bindings resolve correctly.
+        // Cast bypasses the `protected` visibility of _root (same technique used
+        // inside drei's own JS source, which has no TS visibility constraints).
+        (mixer as THREE.AnimationMixer & { _root: THREE.Object3D })._root = clonedScene;
 
         if (animations.length === 0) return;
 
