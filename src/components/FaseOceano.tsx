@@ -1,5 +1,5 @@
 import { Sparkles, Html, PerspectiveCamera, Caustics, Environment, useTexture } from '@react-three/drei';
-import { EffectComposer, Bloom, Noise, Vignette } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { HydrothermalVent } from './HydrothermalVent';
 import { useGameStore, type EvolutionStage } from '../store/gameStore';
@@ -181,16 +181,14 @@ export function FaseOceano() {
         groundColor={hemiGround}
       />
 
-      {/* Sol — PERF: shadows only on desktop, 1024 instead of 2048 */}
+      {/* Sol — PERF: shadows completely disabled to save GPU */}
       <spotLight
         position={[0, 50, 0]}
         angle={0.6}
         penumbra={0.5}
         intensity={sunIntensity}
         color={sunColor}
-        castShadow={!isMobile}
-        shadow-bias={-0.001}
-        shadow-mapSize={[1024, 1024]}
+        castShadow={false}
       />
 
       <Environment preset="night" background={false} />
@@ -199,7 +197,7 @@ export function FaseOceano() {
       <group position={[0, -6, 0]}>
         {/* PERF: Caustics only on desktop — too expensive for mobile */}
         {isMobile ? (
-          <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <mesh rotation={[-Math.PI / 2, 0, 0]}>
             <planeGeometry args={[100, 100, floorSubdivisions, floorSubdivisions]} />
             <meshStandardMaterial
               map={sandColor}
@@ -220,7 +218,7 @@ export function FaseOceano() {
             backside={false}
             causticsOnly={false}
           >
-            <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+            <mesh rotation={[-Math.PI / 2, 0, 0]}>
               <planeGeometry args={[100, 100, floorSubdivisions, floorSubdivisions]} />
               <meshStandardMaterial
                 map={sandColor}
@@ -278,7 +276,6 @@ export function FaseOceano() {
             intensity={lerp(0.8, 2.0, t)}
             mipmapBlur
           />
-          <Noise opacity={0.04} />
           <Vignette eskil={false} offset={0.15} darkness={0.8} />
         </EffectComposer>
       )}

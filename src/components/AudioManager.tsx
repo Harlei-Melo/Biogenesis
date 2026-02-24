@@ -48,52 +48,6 @@ export function AudioManager({ faseAtual }: AudioManagerProps) {
         activeNodesRef.current = [];
     }, []);
 
-    // === WIND / RAIN DRONE (Fase 0) ===
-    const startWindDrone = useCallback(() => {
-        const ctx = ctxRef.current;
-        const master = gainRef.current;
-        if (!ctx || !master) return;
-
-        // Brown noise via AudioBufferSourceNode
-        const bufferSize = ctx.sampleRate * 2;
-        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        let lastOut = 0;
-        for (let i = 0; i < bufferSize; i++) {
-            const white = Math.random() * 2 - 1;
-            lastOut = (lastOut + 0.02 * white) / 1.02;
-            data[i] = lastOut * 3.5;
-        }
-        const noise = ctx.createBufferSource();
-        noise.buffer = buffer;
-        noise.loop = true;
-
-        // Band-pass filter to sound like wind
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.value = 400;
-        filter.Q.value = 0.5;
-
-        // LFO to modulate filter → gusts of wind
-        const lfo = ctx.createOscillator();
-        lfo.type = 'sine';
-        lfo.frequency.value = 0.15;
-        const lfoGain = ctx.createGain();
-        lfoGain.gain.value = 200;
-        lfo.connect(lfoGain);
-        lfoGain.connect(filter.frequency);
-
-        noise.connect(filter);
-        filter.connect(master);
-        noise.start();
-        lfo.start();
-
-        // Fade in
-        master.gain.setTargetAtTime(0.15, ctx.currentTime, 1.5);
-
-        activeNodesRef.current.push(noise, filter, lfo, lfoGain);
-    }, []);
-
     // === UNDERWATER DRONE (Fase 1) ===
     const startUnderwaterDrone = useCallback(() => {
         const ctx = ctxRef.current;
@@ -207,8 +161,8 @@ export function AudioManager({ faseAtual }: AudioManagerProps) {
             // Força a rodar o primeiro state do som (comeca o drone)
             prevFaseRef.current = -1;
             setTimeout(() => {
-                if (faseAtual === 0) startWindDrone();
-                else if (faseAtual === 1) startUnderwaterDrone();
+                // Removemos o startWindDrone, o som no espaço é vácuo/silêncio.
+                if (faseAtual === 1) startUnderwaterDrone();
                 prevFaseRef.current = faseAtual;
             }, 100);
 
@@ -222,7 +176,7 @@ export function AudioManager({ faseAtual }: AudioManagerProps) {
             document.removeEventListener('click', start);
             document.removeEventListener('touchstart', start);
         };
-    }, [ensureContext, faseAtual, startWindDrone, startUnderwaterDrone]);
+    }, [ensureContext, faseAtual, startUnderwaterDrone]);
 
     // React to phase changes
     useEffect(() => {
@@ -243,9 +197,7 @@ export function AudioManager({ faseAtual }: AudioManagerProps) {
         setTimeout(() => {
             stopAll();
 
-            if (faseAtual === 0) {
-                startWindDrone();
-            } else if (faseAtual === 1) {
+            if (faseAtual === 1) {
                 // Sempre toca o splash pra avisar que entrou no oceano!
                 playSplash();
                 startUnderwaterDrone();
@@ -253,7 +205,7 @@ export function AudioManager({ faseAtual }: AudioManagerProps) {
 
             prevFaseRef.current = faseAtual;
         }, 800);
-    }, [faseAtual, stopAll, startWindDrone, startUnderwaterDrone, playSplash]);
+    }, [faseAtual, stopAll, startUnderwaterDrone, playSplash]);
 
     // Cleanup on unmount
     useEffect(() => {
