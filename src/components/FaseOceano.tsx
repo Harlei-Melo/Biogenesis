@@ -1,4 +1,4 @@
-import { Sparkles, Html, PerspectiveCamera, Caustics, Environment, useTexture } from '@react-three/drei';
+import { Sparkles, Html, PerspectiveCamera, Environment, useTexture } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { HydrothermalVent } from './HydrothermalVent';
@@ -49,10 +49,6 @@ const SUN_COLOR_END = '#ccddff';
 const SPARKLE_COLOR_START = '#556677';
 const SPARKLE_COLOR_END = '#88ffee';
 
-// Caustics
-const CAUSTIC_COLOR_START = '#334455';
-const CAUSTIC_COLOR_END = '#aaffff';
-
 export function FaseOceano() {
   const updateSimulation = useGameStore((state) => state.updateSimulation);
   const parameters = useGameStore((state) => state.parameters);
@@ -74,12 +70,10 @@ export function FaseOceano() {
   const hemiSky = useMemo(() => lerpColor(HEMI_SKY_START, HEMI_SKY_END, t), [t]);
   const hemiGround = useMemo(() => lerpColor(HEMI_GND_START, HEMI_GND_END, t), [t]);
   const sunColor = useMemo(() => lerpColor(SUN_COLOR_START, SUN_COLOR_END, t), [t]);
-  const causticColor = useMemo(() => lerpColor(CAUSTIC_COLOR_START, CAUSTIC_COLOR_END, t), [t]);
   const sparkleColor = useMemo(() => '#' + lerpColor(SPARKLE_COLOR_START, SPARKLE_COLOR_END, t).getHexString(), [t]);
 
   const hemiIntensity = lerp(0.4, 0.8, t);
   const sunIntensity = lerp(10, 30, t);
-  const causticIntensity = lerp(0.06, 0.25, t);
   const sparkleOpacity = lerp(0.2, 0.55, t);
   // ── PERF: Cap sparkles, especially on mobile ──
   const sparkleCount = isMobile ? Math.floor(lerp(20, 70, t)) : Math.floor(lerp(50, 150, t));
@@ -195,42 +189,17 @@ export function FaseOceano() {
 
       {/* ── Fundo do Mar ─────────────────────────────────────────────── */}
       <group position={[0, -6, 0]}>
-        {/* PERF: Caustics only on desktop — too expensive for mobile */}
-        {isMobile ? (
-          <mesh rotation={[-Math.PI / 2, 0, 0]}>
-            <planeGeometry args={[100, 100, floorSubdivisions, floorSubdivisions]} />
-            <meshStandardMaterial
-              map={sandColor}
-              normalMap={sandNormal}
-              roughnessMap={sandRoughness}
-              roughness={1}
-              envMapIntensity={0.5}
-              color={sandTint}
-            />
-          </mesh>
-        ) : (
-          <Caustics
-            color={causticColor}
-            lightSource={[0, 50, 0]}
-            intensity={causticIntensity}
-            worldRadius={30}
-            ior={1.1}
-            backside={false}
-            causticsOnly={false}
-          >
-            <mesh rotation={[-Math.PI / 2, 0, 0]}>
-              <planeGeometry args={[100, 100, floorSubdivisions, floorSubdivisions]} />
-              <meshStandardMaterial
-                map={sandColor}
-                normalMap={sandNormal}
-                roughnessMap={sandRoughness}
-                roughness={1}
-                envMapIntensity={0.5}
-                color={sandTint}
-              />
-            </mesh>
-          </Caustics>
-        )}
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[100, 100, floorSubdivisions, floorSubdivisions]} />
+          <meshStandardMaterial
+            map={sandColor}
+            normalMap={sandNormal}
+            roughnessMap={sandRoughness}
+            roughness={1}
+            envMapIntensity={0.5}
+            color={sandTint}
+          />
+        </mesh>
       </group>
 
       {/* Fill light */}
