@@ -82,7 +82,7 @@ export function FaseOceano() {
   const causticIntensity = lerp(0.06, 0.25, t);
   const sparkleOpacity = lerp(0.2, 0.55, t);
   // ── PERF: Cap sparkles, especially on mobile ──
-  const sparkleCount = isMobile ? Math.floor(lerp(40, 120, t)) : Math.floor(lerp(100, 350, t));
+  const sparkleCount = isMobile ? Math.floor(lerp(20, 70, t)) : Math.floor(lerp(50, 150, t));
   const headlightIntensity = lerp(5, 8, t);
 
   // Fog limits

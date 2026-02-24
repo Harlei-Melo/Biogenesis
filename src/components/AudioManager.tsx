@@ -35,24 +35,6 @@ export function AudioManager({ faseAtual }: AudioManagerProps) {
         return ctx;
     }, []);
 
-    // Start audio on first click/touch (browser autoplay policy)
-    useEffect(() => {
-        const start = () => {
-            if (startedRef.current) return;
-            startedRef.current = true;
-            ensureContext();
-            // Remove listeners after first interaction
-            document.removeEventListener('click', start);
-            document.removeEventListener('touchstart', start);
-        };
-        document.addEventListener('click', start, { once: true });
-        document.addEventListener('touchstart', start, { once: true });
-        return () => {
-            document.removeEventListener('click', start);
-            document.removeEventListener('touchstart', start);
-        };
-    }, [ensureContext]);
-
     // Stop all currently playing nodes
     const stopAll = useCallback(() => {
         for (const node of activeNodesRef.current) {
@@ -214,6 +196,34 @@ export function AudioManager({ faseAtual }: AudioManagerProps) {
         };
     }, []);
 
+    // Start audio on first click/touch (browser autoplay policy)
+    // Movido para ca para nao usar variavel antes de inicializada
+    useEffect(() => {
+        const start = () => {
+            if (startedRef.current) return;
+            startedRef.current = true;
+            ensureContext();
+
+            // Força a rodar o primeiro state do som (comeca o drone)
+            prevFaseRef.current = -1;
+            setTimeout(() => {
+                if (faseAtual === 0) startWindDrone();
+                else if (faseAtual === 1) startUnderwaterDrone();
+                prevFaseRef.current = faseAtual;
+            }, 100);
+
+            // Remove listeners after first interaction
+            document.removeEventListener('click', start);
+            document.removeEventListener('touchstart', start);
+        };
+        document.addEventListener('click', start);
+        document.addEventListener('touchstart', start);
+        return () => {
+            document.removeEventListener('click', start);
+            document.removeEventListener('touchstart', start);
+        };
+    }, [ensureContext, faseAtual, startWindDrone, startUnderwaterDrone]);
+
     // React to phase changes
     useEffect(() => {
         if (!startedRef.current || !ctxRef.current) return;
@@ -236,9 +246,8 @@ export function AudioManager({ faseAtual }: AudioManagerProps) {
             if (faseAtual === 0) {
                 startWindDrone();
             } else if (faseAtual === 1) {
-                if (prevFaseRef.current === 0) {
-                    playSplash();
-                }
+                // Sempre toca o splash pra avisar que entrou no oceano!
+                playSplash();
                 startUnderwaterDrone();
             }
 
