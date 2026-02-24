@@ -1,5 +1,4 @@
 import { Sparkles, Html, PerspectiveCamera, Environment, useTexture } from '@react-three/drei';
-import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { HydrothermalVent } from './HydrothermalVent';
 import { useGameStore, type EvolutionStage } from '../store/gameStore';
@@ -144,8 +143,8 @@ export function FaseOceano() {
   // Sand tint
   const sandTint = useMemo(() => '#' + lerpColor('#666666', '#bbbbbb', t).getHexString(), [t]);
 
-  // ── PERF: Floor geometry — 64x64 is enough, 256x256 is overkill ──
-  const floorSubdivisions = isMobile ? 32 : 64;
+  // Restaura qualidade da areia do fundo como original 
+  const floorSubdivisions = 256;
 
   return (
     <>
@@ -235,19 +234,6 @@ export function FaseOceano() {
 
         <LifeSpawner />
       </group>
-
-      {/* ── Post-Processing — DESKTOP ONLY ─────────────────────────── */}
-      {!isMobile && (
-        <EffectComposer enableNormalPass={false} multisampling={0}>
-          <Bloom
-            luminanceThreshold={0.7}
-            luminanceSmoothing={0.3}
-            intensity={lerp(0.8, 2.0, t)}
-            mipmapBlur
-          />
-          <Vignette eskil={false} offset={0.15} darkness={0.8} />
-        </EffectComposer>
-      )}
     </>
   );
 }
