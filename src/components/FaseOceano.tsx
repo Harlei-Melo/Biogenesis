@@ -15,10 +15,6 @@ const STAGE_ORDER: EvolutionStage[] = ['AminoAcids', 'RNA', 'Protocell', 'Life']
 
 /**
  * Returns a 0→1 global evolution factor.
- * AminoAcids 0%→100% maps to 0.00→0.25
- * RNA        0%→100% maps to 0.25→0.50
- * Protocell  0%→100% maps to 0.50→0.75
- * Life       0%→100% maps to 0.75→1.00
  */
 function evolutionFactor(stage: EvolutionStage, progress: number): number {
   const idx = STAGE_ORDER.indexOf(stage);
@@ -36,8 +32,8 @@ function lerp(a: number, b: number, t: number): number {
 // ─── Presets for each evolution extreme ───────────────────────────────────────
 
 // Fog / background
-const FOG_START = '#002a35';  // Dark teal — visible on mobile (was #000d12)
-const FOG_END = '#006677';  // Vibrant teal (Life)
+const FOG_START = '#002a35';
+const FOG_END = '#006677';
 
 // Hemisphere light
 const HEMI_SKY_START = '#113344';
@@ -46,8 +42,8 @@ const HEMI_GND_START = '#0a1e2a';
 const HEMI_GND_END = '#004455';
 
 // Spotlight (sun)
-const SUN_COLOR_START = '#5577aa'; // Brighter base
-const SUN_COLOR_END = '#ccddff'; // Bright daylight
+const SUN_COLOR_START = '#5577aa';
+const SUN_COLOR_END = '#ccddff';
 
 // Sparkles
 const SPARKLE_COLOR_START = '#556677';
@@ -68,9 +64,9 @@ export function FaseOceano() {
   const t = evolutionFactor(stage, progress);
 
   // ── Mobile adaptations ────────────────────────────────────────────────
-  const cameraFov = isMobile ? 65 : 50;     // Wider FOV = objects look smaller
-  const orbitRadius = isMobile ? 20 : 15;     // Pull camera back
-  const cameraY = isMobile ? 8 : 5;       // Higher vantage point
+  const cameraFov = isMobile ? 65 : 50;
+  const orbitRadius = isMobile ? 20 : 15;
+  const cameraY = isMobile ? 8 : 5;
 
   // ── Derived visuals ──────────────────────────────────────────────────
   const fogColor = useMemo(() => lerpColor(FOG_START, FOG_END, t), [t]);
@@ -85,10 +81,11 @@ export function FaseOceano() {
   const sunIntensity = lerp(10, 30, t);
   const causticIntensity = lerp(0.06, 0.25, t);
   const sparkleOpacity = lerp(0.2, 0.55, t);
-  const sparkleCount = Math.floor(lerp(isMobile ? 80 : 150, isMobile ? 300 : 600, t));
+  // ── PERF: Cap sparkles, especially on mobile ──
+  const sparkleCount = isMobile ? Math.floor(lerp(40, 120, t)) : Math.floor(lerp(100, 350, t));
   const headlightIntensity = lerp(5, 8, t);
 
-  // Fog limits — far fog fades out as ocean brightens
+  // Fog limits
   const fogNear = lerp(8, 15, t);
   const fogFar = lerp(45, 70, t);
 
@@ -97,42 +94,36 @@ export function FaseOceano() {
   const bgRef = useRef<THREE.Color>(null!);
 
   // ── Dive-in transition ────────────────────────────────────────────────
-  const diveProgress = useRef(0); // 0 = high above, 1 = fully settled
-  const DIVE_SPEED = 0.6; // How fast we descend (higher = faster)
+  const diveProgress = useRef(0);
+  const DIVE_SPEED = 0.6;
 
   // Loop de Simulação
   useFrame((state, delta) => {
     updateSimulation(delta);
 
     // ── Dive-in animation (first ~3 seconds) ────────────────────────
+    const elapsed = state.clock.getElapsedTime();
     if (diveProgress.current < 0.99) {
       diveProgress.current += (1 - diveProgress.current) * DIVE_SPEED * delta;
       if (diveProgress.current > 0.99) diveProgress.current = 1;
-
       const dp = diveProgress.current;
-      // Camera starts high (Y=60) looking down, descends to orbital position
-      const startY = 60;
-      const endY = cameraY;
-      const currentY = startY + (endY - startY) * dp;
-
-      // During dive, orbit slowly expands from 0 to orbitRadius
+      const currentY = 60 + (cameraY - 60) * dp;
       const currentRadius = orbitRadius * dp;
-
-      const elapsed = state.clock.getElapsedTime();
-      state.camera.position.x = Math.sin(elapsed * 0.05) * currentRadius;
-      state.camera.position.y = currentY;
-      state.camera.position.z = Math.cos(elapsed * 0.05) * currentRadius;
-      state.camera.lookAt(0, 0, 0);
+      state.camera.position.set(
+        Math.sin(elapsed * 0.05) * currentRadius,
+        currentY,
+        Math.cos(elapsed * 0.05) * currentRadius,
+      );
     } else {
-      // Normal orbital rotation after dive completes
-      const elapsed = state.clock.getElapsedTime();
-      state.camera.position.x = Math.sin(elapsed * 0.05) * orbitRadius;
-      state.camera.position.y = cameraY;
-      state.camera.position.z = Math.cos(elapsed * 0.05) * orbitRadius;
-      state.camera.lookAt(0, 0, 0);
+      state.camera.position.set(
+        Math.sin(elapsed * 0.05) * orbitRadius,
+        cameraY,
+        Math.cos(elapsed * 0.05) * orbitRadius,
+      );
     }
+    state.camera.lookAt(0, 0, 0);
 
-    // Smooth fog color transition (avoid per-frame useMemo re-allocations)
+    // Smooth fog color transition
     if (bgRef.current) bgRef.current.lerp(fogColor, 0.02);
     if (fogRef.current) {
       fogRef.current.color.lerp(fogColor, 0.02);
@@ -156,13 +147,15 @@ export function FaseOceano() {
   sandRoughness.wrapS = sandRoughness.wrapT = THREE.RepeatWrapping;
   sandRoughness.repeat.set(8, 8);
 
-  // Sand tint: slightly brighter as ocean evolves
+  // Sand tint
   const sandTint = useMemo(() => '#' + lerpColor('#666666', '#bbbbbb', t).getHexString(), [t]);
+
+  // ── PERF: Floor geometry — 64x64 is enough, 256x256 is overkill ──
+  const floorSubdivisions = isMobile ? 32 : 64;
 
   return (
     <>
       <PerspectiveCamera makeDefault position={[10, cameraY, 10]} fov={cameraFov}>
-        {/* Headlight */}
         <pointLight
           intensity={headlightIntensity}
           distance={20}
@@ -182,40 +175,32 @@ export function FaseOceano() {
       <color ref={bgRef} attach="background" args={[fogColorHex]} />
       <fog ref={fogRef} attach="fog" args={[fogColorHex, fogNear, fogFar]} />
 
-      {/* Hemisphere light — evolves from dim to vivid */}
       <hemisphereLight
         intensity={hemiIntensity}
         color={hemiSky}
         groundColor={hemiGround}
       />
 
-      {/* Sol — fica mais forte conforme evolui */}
+      {/* Sol — PERF: shadows only on desktop, 1024 instead of 2048 */}
       <spotLight
         position={[0, 50, 0]}
         angle={0.6}
         penumbra={0.5}
         intensity={sunIntensity}
         color={sunColor}
-        castShadow
+        castShadow={!isMobile}
         shadow-bias={-0.001}
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[1024, 1024]}
       />
 
       <Environment preset="night" background={false} />
 
       {/* ── Fundo do Mar ─────────────────────────────────────────────── */}
       <group position={[0, -6, 0]}>
-        <Caustics
-          color={causticColor}
-          lightSource={[0, 50, 0]}
-          intensity={causticIntensity}
-          worldRadius={30}
-          ior={1.1}
-          backside={false}
-          causticsOnly={false}
-        >
+        {/* PERF: Caustics only on desktop — too expensive for mobile */}
+        {isMobile ? (
           <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-            <planeGeometry args={[100, 100, 256, 256]} />
+            <planeGeometry args={[100, 100, floorSubdivisions, floorSubdivisions]} />
             <meshStandardMaterial
               map={sandColor}
               normalMap={sandNormal}
@@ -225,7 +210,29 @@ export function FaseOceano() {
               color={sandTint}
             />
           </mesh>
-        </Caustics>
+        ) : (
+          <Caustics
+            color={causticColor}
+            lightSource={[0, 50, 0]}
+            intensity={causticIntensity}
+            worldRadius={30}
+            ior={1.1}
+            backside={false}
+            causticsOnly={false}
+          >
+            <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+              <planeGeometry args={[100, 100, floorSubdivisions, floorSubdivisions]} />
+              <meshStandardMaterial
+                map={sandColor}
+                normalMap={sandNormal}
+                roughnessMap={sandRoughness}
+                roughness={1}
+                envMapIntensity={0.5}
+                color={sandTint}
+              />
+            </mesh>
+          </Caustics>
+        )}
       </group>
 
       {/* Fill light */}
@@ -240,11 +247,11 @@ export function FaseOceano() {
         decay={2}
       />
 
-      {/* ── Partículas — evoluem com a vida ──────────────────────────── */}
+      {/* ── Partículas ──────────────────────────────────────────────── */}
       <Sparkles
         count={sparkleCount}
         scale={40}
-        size={6}
+        size={isMobile ? 4 : 6}
         speed={0.4}
         opacity={sparkleOpacity}
         color={sparkleColor}
@@ -252,27 +259,29 @@ export function FaseOceano() {
 
       {/* ── Eco-sistema ──────────────────────────────────────────────── */}
       <group position={[0, -6, 0]}>
+        {/* PERF: 3 vents on mobile, 5 on desktop */}
         <HydrothermalVent position={[0, 0, 0]} />
         <HydrothermalVent position={[-4, 0, 3]} />
         <HydrothermalVent position={[3, 0.5, -3]} />
-        <HydrothermalVent position={[5, -1, 4]} />
-        <HydrothermalVent position={[-3, 1, -5]} />
+        {!isMobile && <HydrothermalVent position={[5, -1, 4]} />}
+        {!isMobile && <HydrothermalVent position={[-3, 1, -5]} />}
 
-        {/* Spawner de Vida (flora + fauna) */}
         <LifeSpawner />
       </group>
 
-      {/* ── Post-Processing (Bloom + ambiente cinematográfico) ───────────── */}
-      <EffectComposer enableNormalPass={false} multisampling={0}>
-        <Bloom
-          luminanceThreshold={0.7}
-          luminanceSmoothing={0.3}
-          intensity={lerp(0.8, 2.0, t)}
-          mipmapBlur
-        />
-        <Noise opacity={0.04} />
-        <Vignette eskil={false} offset={0.15} darkness={0.8} />
-      </EffectComposer>
+      {/* ── Post-Processing — DESKTOP ONLY ─────────────────────────── */}
+      {!isMobile && (
+        <EffectComposer enableNormalPass={false} multisampling={0}>
+          <Bloom
+            luminanceThreshold={0.7}
+            luminanceSmoothing={0.3}
+            intensity={lerp(0.8, 2.0, t)}
+            mipmapBlur
+          />
+          <Noise opacity={0.04} />
+          <Vignette eskil={false} offset={0.15} darkness={0.8} />
+        </EffectComposer>
+      )}
     </>
   );
 }
