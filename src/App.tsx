@@ -2,6 +2,7 @@ import { useState, Suspense } from "react";
 import { Canvas } from "@react-three/fiber";
 import { FaseAtmosfera } from "./components/FaseAtmosfera";
 import { FaseOceano } from "./components/FaseOceano";
+import { AudioManager } from "./components/AudioManager";
 
 // Pequeno componente para mostrar que está carregando
 function Loader() {
@@ -19,6 +20,9 @@ export default function App() {
 
   return (
     <>
+      {/* Gerenciador de áudio (sem UI) */}
+      <AudioManager faseAtual={faseAtual} />
+
       <div style={{ position: "absolute", top: 12, left: 12, right: 12, color: "white", zIndex: 10, pointerEvents: "none" }}>
         <h1 style={{ margin: 0, textTransform: "uppercase", fontSize: "clamp(0.85rem, 3.5vw, 1.5rem)", lineHeight: 1.2 }}>
           {faseAtual === 0 ? "Fase 1: Atmosfera" : "Fase 2: Sopa Primordial"}
@@ -31,13 +35,12 @@ export default function App() {
       </div>
 
       <Canvas
-        camera={{ position: [0, 0, 10] }} // Afastei um pouco a camera para garantir visão
+        camera={{ position: [0, 0, 10] }}
         dpr={[1, 2]}
         gl={{ antialias: true }}
       >
         <color attach="background" args={["#020202"]} />
 
-        {/* O Suspense agora mostra o 'Loader' enquanto as texturas baixam */}
         <Suspense fallback={<Loader />}>
           {faseAtual === 0 && (
             <FaseAtmosfera

@@ -1,4 +1,5 @@
 import { Sparkles, Html, PerspectiveCamera, Caustics, Environment, useTexture } from '@react-three/drei';
+import { EffectComposer, Bloom, Noise, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { HydrothermalVent } from './HydrothermalVent';
 import { useGameStore, type EvolutionStage } from '../store/gameStore';
@@ -95,16 +96,41 @@ export function FaseOceano() {
   const fogRef = useRef<THREE.Fog>(null!);
   const bgRef = useRef<THREE.Color>(null!);
 
+  // ── Dive-in transition ────────────────────────────────────────────────
+  const diveProgress = useRef(0); // 0 = high above, 1 = fully settled
+  const DIVE_SPEED = 0.6; // How fast we descend (higher = faster)
+
   // Loop de Simulação
   useFrame((state, delta) => {
     updateSimulation(delta);
 
-    // Câmera: rotação cinematográfica lenta
-    const elapsed = state.clock.getElapsedTime();
-    state.camera.position.x = Math.sin(elapsed * 0.05) * orbitRadius;
-    state.camera.position.y = cameraY;
-    state.camera.position.z = Math.cos(elapsed * 0.05) * orbitRadius;
-    state.camera.lookAt(0, 0, 0);
+    // ── Dive-in animation (first ~3 seconds) ────────────────────────
+    if (diveProgress.current < 0.99) {
+      diveProgress.current += (1 - diveProgress.current) * DIVE_SPEED * delta;
+      if (diveProgress.current > 0.99) diveProgress.current = 1;
+
+      const dp = diveProgress.current;
+      // Camera starts high (Y=60) looking down, descends to orbital position
+      const startY = 60;
+      const endY = cameraY;
+      const currentY = startY + (endY - startY) * dp;
+
+      // During dive, orbit slowly expands from 0 to orbitRadius
+      const currentRadius = orbitRadius * dp;
+
+      const elapsed = state.clock.getElapsedTime();
+      state.camera.position.x = Math.sin(elapsed * 0.05) * currentRadius;
+      state.camera.position.y = currentY;
+      state.camera.position.z = Math.cos(elapsed * 0.05) * currentRadius;
+      state.camera.lookAt(0, 0, 0);
+    } else {
+      // Normal orbital rotation after dive completes
+      const elapsed = state.clock.getElapsedTime();
+      state.camera.position.x = Math.sin(elapsed * 0.05) * orbitRadius;
+      state.camera.position.y = cameraY;
+      state.camera.position.z = Math.cos(elapsed * 0.05) * orbitRadius;
+      state.camera.lookAt(0, 0, 0);
+    }
 
     // Smooth fog color transition (avoid per-frame useMemo re-allocations)
     if (bgRef.current) bgRef.current.lerp(fogColor, 0.02);
@@ -235,6 +261,18 @@ export function FaseOceano() {
         {/* Spawner de Vida (flora + fauna) */}
         <LifeSpawner />
       </group>
+
+      {/* ── Post-Processing (Bloom + ambiente cinematográfico) ───────────── */}
+      <EffectComposer enableNormalPass={false} multisampling={0}>
+        <Bloom
+          luminanceThreshold={0.7}
+          luminanceSmoothing={0.3}
+          intensity={lerp(0.8, 2.0, t)}
+          mipmapBlur
+        />
+        <Noise opacity={0.04} />
+        <Vignette eskil={false} offset={0.15} darkness={0.8} />
+      </EffectComposer>
     </>
   );
 }
