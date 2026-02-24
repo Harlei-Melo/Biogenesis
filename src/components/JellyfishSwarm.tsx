@@ -53,15 +53,18 @@ function Jellyfish({
                 const src = Array.isArray(mesh.material)
                     ? mesh.material[0] : mesh.material;
                 const mat = (src as THREE.MeshStandardMaterial).clone();
-                // Make jellyfish translucent and glowing
+                // Translucent + glow
                 mat.transparent = true;
-                mat.opacity = 0.65;
+                mat.opacity = 0.55;
+                mat.depthWrite = false;           // ← Prevents z-fighting flicker
+                mat.blending = THREE.NormalBlending;
                 mat.emissive = new THREE.Color(0x112244);
                 mat.emissiveIntensity = 0.4;
                 mat.side = THREE.DoubleSide;
                 mesh.material = mat;
                 mesh.castShadow = false;
                 mesh.receiveShadow = false;
+                mesh.renderOrder = 10;            // ← Render after all opaque objects
             }
         });
         return s;
