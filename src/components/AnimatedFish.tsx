@@ -274,31 +274,34 @@ export function AnimatedFishSwarm({
     range = 25,
     yawOverride,
 }: AnimatedFishSwarmProps) {
-    const positions = useMemo(
-        () => Array.from({ length: count }, () =>
-            new THREE.Vector3(
+    // Memoize ALL random values together so they stay stable across re-renders
+    const instances = useMemo(
+        () => Array.from({ length: count }, () => ({
+            pos: new THREE.Vector3(
                 (Math.random() - 0.5) * range * 1.4,
                 (Math.random() - 0.5) * range * 0.25,
                 (Math.random() - 0.5) * range * 1.4,
             ),
-        ),
+            speedMul: 0.9 + Math.random() * 0.2,
+        })),
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [count, range],
     );
 
     return (
         <>
-            {positions.map((pos, i) => (
+            {instances.map((inst, i) => (
                 <AnimatedFish
                     key={i}
                     modelPath={modelPath}
                     scale={scale}
-                    speed={speed * (0.9 + Math.random() * 0.2)}
+                    speed={speed * inst.speedMul}
                     range={range}
                     yawOverride={yawOverride}
-                    initialPosition={pos}
+                    initialPosition={inst.pos}
                 />
             ))}
         </>
     );
 }
+

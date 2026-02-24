@@ -183,30 +183,34 @@ export function JellyfishSwarm({
     yMin = 3,
     yMax = 10,
 }: JellyfishSwarmProps) {
-    const positions = useMemo(
-        () => Array.from({ length: count }, () =>
-            new THREE.Vector3(
+    // Memoize ALL random values together so they stay stable across re-renders
+    const instances = useMemo(
+        () => Array.from({ length: count }, () => ({
+            pos: new THREE.Vector3(
                 (Math.random() - 0.5) * range * 0.8,
                 yMin + Math.random() * (yMax - yMin),
                 (Math.random() - 0.5) * range * 0.8,
             ),
-        ),
+            scaleMul: 0.7 + Math.random() * 0.6,
+            speedMul: 0.8 + Math.random() * 0.4,
+        })),
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [count, range, yMin, yMax],
     );
 
     return (
         <>
-            {positions.map((pos, i) => (
+            {instances.map((inst, i) => (
                 <Jellyfish
                     key={i}
                     modelPath={modelPath}
-                    scale={scale * (0.7 + Math.random() * 0.6)}
-                    speed={speed * (0.8 + Math.random() * 0.4)}
+                    scale={scale * inst.scaleMul}
+                    speed={speed * inst.speedMul}
                     range={range}
-                    initialPosition={pos}
+                    initialPosition={inst.pos}
                 />
             ))}
         </>
     );
 }
+
