@@ -284,8 +284,11 @@ function atLeast(current: EvolutionStage, target: EvolutionStage): boolean {
     return order.indexOf(current) >= order.indexOf(target);
 }
 
-export function OceanFlora() {
+export function OceanFlora({ isMobile = false }: { isMobile?: boolean }) {
     const stage = useGameStore((s) => s.stage);
+
+    // On mobile, halve decoration counts
+    const m = (n: number) => isMobile ? Math.max(1, Math.ceil(n * 0.5)) : n;
 
     return (
         <group>
@@ -294,7 +297,7 @@ export function OceanFlora() {
                 <>
                     <DecorationGroup
                         modelPath="/models/stromatolite.glb"
-                        count={4}
+                        count={m(4)}
                         scale={0.8}
                         radiusMin={5}
                         radiusMax={20}
@@ -302,7 +305,7 @@ export function OceanFlora() {
                     />
                     <DecorationGroup
                         modelPath="/models/stromatolite_chlorellopsis_coloniata_cornell.glb"
-                        count={2}
+                        count={m(2)}
                         scale={0.5}
                         radiusMin={8}
                         radiusMax={18}
@@ -310,7 +313,7 @@ export function OceanFlora() {
                     />
                     <DecorationGroup
                         modelPath="/models/stromatolite_collenia_versiformis_cornell_u..glb"
-                        count={2}
+                        count={m(2)}
                         scale={0.6}
                         radiusMin={10}
                         radiusMax={22}
@@ -324,7 +327,7 @@ export function OceanFlora() {
                 <>
                     <SeaweedPatch
                         modelPath="/models/seaweed.glb"
-                        count={15}
+                        count={m(15)}
                         scale={0.02}
                         radiusMin={5}
                         radiusMax={28}
@@ -332,7 +335,7 @@ export function OceanFlora() {
                     />
                     <SeaweedPatch
                         modelPath="/models/seaweed_2.glb"
-                        count={10}
+                        count={m(10)}
                         scale={0.02}
                         radiusMin={6}
                         radiusMax={25}
@@ -340,7 +343,7 @@ export function OceanFlora() {
                     />
                     <SeaweedPatch
                         modelPath="/models/seaweed_asset.glb"
-                        count={8}
+                        count={m(8)}
                         scale={0.02}
                         radiusMin={8}
                         radiusMax={30}
@@ -355,7 +358,7 @@ export function OceanFlora() {
                     {/* Esponjas — vida séssil filtradora */}
                     <DecorationGroup
                         modelPath="/models/tube_sponge.glb"
-                        count={4}
+                        count={m(4)}
                         scale={0.5}
                         radiusMin={6}
                         radiusMax={22}
@@ -363,7 +366,7 @@ export function OceanFlora() {
                     />
                     <DecorationGroup
                         modelPath="/models/orange_puffball_sea_sponge.glb"
-                        count={5}
+                        count={m(5)}
                         scale={0.02}
                         radiusMin={8}
                         radiusMax={25}
@@ -373,7 +376,7 @@ export function OceanFlora() {
                     {/* Alga neon — bioluminescência primitiva */}
                     <DecorationGroup
                         modelPath="/models/neon_seaweed_1.glb"
-                        count={4}
+                        count={m(4)}
                         scale={0.05}
                         radiusMin={10}
                         radiusMax={28}
@@ -428,7 +431,7 @@ export function OceanFlora() {
                     {/* Kelp gigante animado */}
                     <DecorationGroup
                         modelPath="/models/kelp_with_animation.glb"
-                        count={3}
+                        count={m(3)}
                         scale={0.08}
                         radiusMin={12}
                         radiusMax={30}
@@ -439,7 +442,7 @@ export function OceanFlora() {
                     {/* Mais algas e esponjas para densificar */}
                     <SeaweedPatch
                         modelPath="/models/seaweed.glb"
-                        count={12}
+                        count={m(12)}
                         scale={0.025}
                         radiusMin={15}
                         radiusMax={35}
@@ -447,7 +450,7 @@ export function OceanFlora() {
                     />
                     <DecorationGroup
                         modelPath="/models/tube_sponge.glb"
-                        count={3}
+                        count={m(3)}
                         scale={0.6}
                         radiusMin={15}
                         radiusMax={30}

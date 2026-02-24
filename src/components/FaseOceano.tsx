@@ -6,6 +6,7 @@ import { LifeParameters } from './LifeParameters';
 import { LifeSpawner } from './LifeSpawner';
 import { useFrame } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // ─── Stage-based interpolation ────────────────────────────────────────────────
 
@@ -34,25 +35,25 @@ function lerp(a: number, b: number, t: number): number {
 // ─── Presets for each evolution extreme ───────────────────────────────────────
 
 // Fog / background
-const FOG_START = '#000d12';  // Abyssal black-blue (AminoAcids)
-const FOG_END = '#004455';  // Rich teal (Life)
+const FOG_START = '#002a35';  // Dark teal — visible on mobile (was #000d12)
+const FOG_END = '#006677';  // Vibrant teal (Life)
 
 // Hemisphere light
-const HEMI_SKY_START = '#001122';
-const HEMI_SKY_END = '#1199cc';
-const HEMI_GND_START = '#000811';
-const HEMI_GND_END = '#003344';
+const HEMI_SKY_START = '#113344';
+const HEMI_SKY_END = '#22aadd';
+const HEMI_GND_START = '#0a1e2a';
+const HEMI_GND_END = '#004455';
 
 // Spotlight (sun)
-const SUN_COLOR_START = '#334466'; // dim, cold
-const SUN_COLOR_END = '#bbddff'; // bright daylight
+const SUN_COLOR_START = '#5577aa'; // Brighter base
+const SUN_COLOR_END = '#ccddff'; // Bright daylight
 
 // Sparkles
-const SPARKLE_COLOR_START = '#445566';
+const SPARKLE_COLOR_START = '#556677';
 const SPARKLE_COLOR_END = '#88ffee';
 
 // Caustics
-const CAUSTIC_COLOR_START = '#223344';
+const CAUSTIC_COLOR_START = '#334455';
 const CAUSTIC_COLOR_END = '#aaffff';
 
 export function FaseOceano() {
@@ -60,9 +61,15 @@ export function FaseOceano() {
   const parameters = useGameStore((state) => state.parameters);
   const stage = useGameStore((state) => state.stage);
   const progress = useGameStore((state) => state.progress);
+  const isMobile = useIsMobile();
 
   // ── Evolution factor (0 → 1) ─────────────────────────────────────────
   const t = evolutionFactor(stage, progress);
+
+  // ── Mobile adaptations ────────────────────────────────────────────────
+  const cameraFov = isMobile ? 65 : 50;     // Wider FOV = objects look smaller
+  const orbitRadius = isMobile ? 20 : 15;     // Pull camera back
+  const cameraY = isMobile ? 8 : 5;       // Higher vantage point
 
   // ── Derived visuals ──────────────────────────────────────────────────
   const fogColor = useMemo(() => lerpColor(FOG_START, FOG_END, t), [t]);
@@ -73,16 +80,16 @@ export function FaseOceano() {
   const causticColor = useMemo(() => lerpColor(CAUSTIC_COLOR_START, CAUSTIC_COLOR_END, t), [t]);
   const sparkleColor = useMemo(() => '#' + lerpColor(SPARKLE_COLOR_START, SPARKLE_COLOR_END, t).getHexString(), [t]);
 
-  const hemiIntensity = lerp(0.15, 0.7, t);
-  const sunIntensity = lerp(5, 25, t);
-  const causticIntensity = lerp(0.03, 0.2, t);
-  const sparkleOpacity = lerp(0.1, 0.5, t);
-  const sparkleCount = Math.floor(lerp(100, 600, t));
-  const headlightIntensity = lerp(3, 6, t);
+  const hemiIntensity = lerp(0.4, 0.8, t);
+  const sunIntensity = lerp(10, 30, t);
+  const causticIntensity = lerp(0.06, 0.25, t);
+  const sparkleOpacity = lerp(0.2, 0.55, t);
+  const sparkleCount = Math.floor(lerp(isMobile ? 80 : 150, isMobile ? 300 : 600, t));
+  const headlightIntensity = lerp(5, 8, t);
 
   // Fog limits — far fog fades out as ocean brightens
-  const fogNear = lerp(5, 12, t);
-  const fogFar = lerp(35, 60, t);
+  const fogNear = lerp(8, 15, t);
+  const fogFar = lerp(45, 70, t);
 
   // Refs for animated values
   const fogRef = useRef<THREE.Fog>(null!);
@@ -94,8 +101,9 @@ export function FaseOceano() {
 
     // Câmera: rotação cinematográfica lenta
     const elapsed = state.clock.getElapsedTime();
-    state.camera.position.x = Math.sin(elapsed * 0.05) * 15;
-    state.camera.position.z = Math.cos(elapsed * 0.05) * 15;
+    state.camera.position.x = Math.sin(elapsed * 0.05) * orbitRadius;
+    state.camera.position.y = cameraY;
+    state.camera.position.z = Math.cos(elapsed * 0.05) * orbitRadius;
     state.camera.lookAt(0, 0, 0);
 
     // Smooth fog color transition (avoid per-frame useMemo re-allocations)
@@ -127,7 +135,7 @@ export function FaseOceano() {
 
   return (
     <>
-      <PerspectiveCamera makeDefault position={[10, 5, 10]} fov={50}>
+      <PerspectiveCamera makeDefault position={[10, cameraY, 10]} fov={cameraFov}>
         {/* Headlight */}
         <pointLight
           intensity={headlightIntensity}
