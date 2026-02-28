@@ -8,14 +8,6 @@ export function ProceduralGround({ fogColor }: { fogColor: THREE.Color }) {
   const stage = useGameStore((s) => s.stage);
   const progress = useGameStore((s) => s.progress);
 
-  const t = useMemo(() => {
-    if (["AminoAcids", "RNA", "Protocell", "Life"].includes(stage)) return 0;
-    const stages = ["Pangea", "Extinction"];
-    const idx = stages.indexOf(stage);
-    if (idx === -1) return 1;
-    return (idx + Math.min(progress, 100) / 100) / stages.length;
-  }, [stage, progress]);
-
   // Fallback escuro neutro
   const groundTint = useMemo(() => new THREE.Color("#1a1a2e"), []);
 
