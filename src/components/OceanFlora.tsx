@@ -295,29 +295,21 @@ export function OceanFlora({ isMobile = false }: { isMobile?: boolean }) {
             {/* ── AminoAcids: Estromatólitos — tapetes bacterianos primitivos ── */}
             {atLeast(stage, 'AminoAcids') && (
                 <>
-                    <DecorationGroup
-                        modelPath="/models/stromatolite.glb"
-                        count={m(4)}
-                        scale={0.8}
+                    <SeaweedPatch
+                        modelPath="/models/seaweed.glb"
+                        count={m(8)}
+                        scale={0.02}
                         radiusMin={5}
                         radiusMax={20}
                         seed={42}
                     />
-                    <DecorationGroup
-                        modelPath="/models/stromatolite_chlorellopsis_coloniata_cornell.glb"
-                        count={m(2)}
-                        scale={0.5}
+                    <SeaweedPatch
+                        modelPath="/models/seaweed_2.glb"
+                        count={m(6)}
+                        scale={0.02}
                         radiusMin={8}
                         radiusMax={18}
                         seed={137}
-                    />
-                    <DecorationGroup
-                        modelPath="/models/stromatolite_collenia_versiformis_cornell_u..glb"
-                        count={m(2)}
-                        scale={0.6}
-                        radiusMin={10}
-                        radiusMax={22}
-                        seed={314}
                     />
                 </>
             )}
@@ -355,24 +347,6 @@ export function OceanFlora({ isMobile = false }: { isMobile?: boolean }) {
             {/* ── Protocell: Esponjas e primeiros corais ──────────────────────── */}
             {atLeast(stage, 'Protocell') && (
                 <>
-                    {/* Esponjas — vida séssil filtradora */}
-                    <DecorationGroup
-                        modelPath="/models/tube_sponge.glb"
-                        count={m(4)}
-                        scale={0.5}
-                        radiusMin={6}
-                        radiusMax={22}
-                        seed={444}
-                    />
-                    <DecorationGroup
-                        modelPath="/models/orange_puffball_sea_sponge.glb"
-                        count={m(5)}
-                        scale={0.02}
-                        radiusMin={8}
-                        radiusMax={25}
-                        seed={555}
-                    />
-
                     {/* Alga neon — bioluminescência primitiva */}
                     <DecorationGroup
                         modelPath="/models/neon_seaweed_1.glb"
@@ -439,7 +413,7 @@ export function OceanFlora({ isMobile = false }: { isMobile?: boolean }) {
                         animated
                     />
 
-                    {/* Mais algas e esponjas para densificar */}
+                    {/* Mais algas para densificar */}
                     <SeaweedPatch
                         modelPath="/models/seaweed.glb"
                         count={m(12)}
@@ -447,14 +421,6 @@ export function OceanFlora({ isMobile = false }: { isMobile?: boolean }) {
                         radiusMin={15}
                         radiusMax={35}
                         seed={1212}
-                    />
-                    <DecorationGroup
-                        modelPath="/models/tube_sponge.glb"
-                        count={m(3)}
-                        scale={0.6}
-                        radiusMin={15}
-                        radiusMax={30}
-                        seed={1313}
                     />
                 </>
             )}

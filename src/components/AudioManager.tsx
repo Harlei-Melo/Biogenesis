@@ -150,6 +150,49 @@ export function AudioManager({ faseAtual }: AudioManagerProps) {
         };
     }, []);
 
+    // === PANGEA DRONE (Fase 2) ===
+    const startPangeaDrone = useCallback(() => {
+        const ctx = ctxRef.current;
+        const master = gainRef.current;
+        if (!ctx || !master) return;
+
+        // Vento e Floresta usando Pink Noise
+        const bufferSize = ctx.sampleRate * 2;
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+        for (let i = 0; i < bufferSize; i++) {
+            const white = Math.random() * 2 - 1;
+            b0 = 0.99886 * b0 + white * 0.0555179;
+            b1 = 0.99332 * b1 + white * 0.0750759;
+            b2 = 0.96900 * b2 + white * 0.1538520;
+            b3 = 0.86650 * b3 + white * 0.3104856;
+            b4 = 0.55000 * b4 + white * 0.5329522;
+            b5 = -0.7616 * b5 - white * 0.0168980;
+            data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+            b6 = white * 0.115926;
+        }
+
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+        noise.loop = true;
+
+        const lpf = ctx.createBiquadFilter();
+        lpf.type = 'lowpass';
+        lpf.frequency.value = 600; // Abafado pra rugidos longíquos
+
+        const noiseGain = ctx.createGain();
+        noiseGain.gain.value = 0.2;
+
+        noise.connect(lpf);
+        lpf.connect(noiseGain);
+        noiseGain.connect(master);
+        noise.start();
+
+        activeNodesRef.current.push(noise, lpf, noiseGain);
+        master.gain.setTargetAtTime(0.3, ctx.currentTime, 2.0);
+    }, []);
+
     // Start audio on first click/touch (browser autoplay policy)
     // Movido para ca para nao usar variavel antes de inicializada
     useEffect(() => {
@@ -163,6 +206,7 @@ export function AudioManager({ faseAtual }: AudioManagerProps) {
             setTimeout(() => {
                 // Removemos o startWindDrone, o som no espaço é vácuo/silêncio.
                 if (faseAtual === 1) startUnderwaterDrone();
+                else if (faseAtual === 2) startPangeaDrone();
                 prevFaseRef.current = faseAtual;
             }, 100);
 
@@ -201,11 +245,13 @@ export function AudioManager({ faseAtual }: AudioManagerProps) {
                 // Sempre toca o splash pra avisar que entrou no oceano!
                 playSplash();
                 startUnderwaterDrone();
+            } else if (faseAtual === 2) {
+                startPangeaDrone();
             }
 
             prevFaseRef.current = faseAtual;
         }, 800);
-    }, [faseAtual, stopAll, startUnderwaterDrone, playSplash]);
+    }, [faseAtual, stopAll, startUnderwaterDrone, startPangeaDrone, playSplash]);
 
     // Cleanup on unmount
     useEffect(() => {
