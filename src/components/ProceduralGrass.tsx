@@ -72,6 +72,7 @@ export function ProceduralGrass() {
       shader.uniforms.uTime = { value: 0 };
       shader.uniforms.uProgress = { value: 0 };
 
+      // VÉRTEX SHADER 100% INTACTO (Regra de Ouro)
       shader.vertexShader = `
         uniform float uTime;
         uniform float uProgress;
@@ -85,19 +86,13 @@ export function ProceduralGrass() {
         vWorldPos = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
         float instRandom = fract(sin(dot(vWorldPos.xz, vec2(12.9898, 78.233))) * 43758.5453);
         
-        // 1. ESCALA UNIFORME (O Fim do Esmagamento)
-        // Usamos o MESMO valor para X, Y e Z. Assim, a fase seca é apenas uma miniatura perfeita da Fase 2.
         float bladeScale = mix(0.4, 1.0, uProgress); 
-
-        // 2. AFUNILAMENTO (Taper)
         float taper = 1.0 - pow(vHeight, 3.0);
         
-        // Aplica escalas de base
         transformed.x *= taper * bladeScale;
         transformed.z *= taper * bladeScale;
         transformed.y *= bladeScale;
 
-        // 3. FÍSICA DE VENTO PENDULAR (Mantida 100% igual à Fase 2)
         float windTime = uTime * 1.5; 
         float wave = sin(windTime + (vWorldPos.x + vWorldPos.z) * 0.15 + instRandom);
         float sway = wave * 0.4;
@@ -108,21 +103,16 @@ export function ProceduralGrass() {
         transformed.z += windDir.y * sway * bendFactor * bladeScale;
         transformed.y -= abs(sway) * bendFactor * 0.3 * bladeScale;
         
-        // 4. QUEDA NATURAL CORRIGIDA (Fase Seca)
-        // Diminuímos a força que puxava ela para o chão para manter o aspecto de grama de pé
         vec2 droopDir = normalize(vec2(instRandom - 0.5, fract(instRandom * 10.0) - 0.5));
-        
-        // Só tomba levemente para o lado (0.15 em vez de 0.3)
         float droopAmount = (1.0 - uProgress) * 0.15 * bendFactor * bladeScale;
         
         transformed.x += droopDir.x * droopAmount;
         transformed.z += droopDir.y * droopAmount;
-        
-        // Reduz a penalidade de altura para não "amassar" contra o solo
         transformed.y -= droopAmount * 0.1;
         `,
       );
 
+      // FRAGMENT SHADER: NOVA PALETA DE CORES TERRESTRE
       shader.fragmentShader = `
         uniform float uProgress;
         varying float vHeight;
@@ -134,19 +124,22 @@ export function ProceduralGrass() {
         
         float macroNoise = sin(vWorldPos.x * 0.05) * cos(vWorldPos.z * 0.05);
         
-        // Cores Secas
-        vec3 dryTip = vec3(0.65, 0.55, 0.3); 
+        // --- Fase Seca: Dourado, Palha e Trigo Seco ---
+        vec3 dryTip = vec3(0.60, 0.50, 0.25); 
         vec3 dryRoot = vec3(0.35, 0.25, 0.15); 
 
-        // Cores Férteis
-        vec3 lushTip = mix(vec3(1.0, 0.4, 0.4), vec3(0.9, 0.5, 0.6), smoothstep(-1.0, 1.0, macroNoise));
-        vec3 lushRoot = vec3(0.05, 0.05, 0.3); 
+        // --- Fase Fértil: Verde Mesozoico (Vibrante e Histórico) ---
+        vec3 lushA = vec3(0.25, 0.55, 0.15); // Verde samambaia / clorofila
+        vec3 lushB = vec3(0.18, 0.45, 0.10); // Verde musgo profundo
+        vec3 lushTip = mix(lushA, lushB, smoothstep(-1.0, 1.0, macroNoise));
+        vec3 lushRoot = vec3(0.02, 0.12, 0.02); // Raiz sombreada unindo com a terra
 
         vec3 tipColor = mix(dryTip, lushTip, smoothstep(0.2, 0.8, uProgress));
         vec3 rootColor = mix(dryRoot, lushRoot, smoothstep(0.2, 0.8, uProgress));
 
         vec3 finalColor = mix(rootColor, tipColor, pow(vHeight, 0.8));
 
+        // Transluscência mantida (faz a grama brilhar maravilhosamente contra o sol)
         float translucency = pow(vHeight, 2.0) * 0.3;
         finalColor += tipColor * translucency;
 
@@ -156,7 +149,7 @@ export function ProceduralGrass() {
       mat.userData.shader = shader;
     };
 
-    mat.customProgramCacheKey = () => "grass_natural_wind_v5";
+    mat.customProgramCacheKey = () => "grass_natural_colors_v1";
     return mat;
   }, []);
 

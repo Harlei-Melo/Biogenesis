@@ -1,32 +1,11 @@
 import { useGLTF, useAnimations } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useGraph } from "@react-three/fiber";
 import { useEffect, useRef, useMemo } from "react";
 import * as THREE from "three";
 import { clone as skeletonClone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { useGameStore } from "../store/gameStore";
 
-function cloneWithMaterials(scene: THREE.Group): THREE.Group {
-  const cloned = skeletonClone(scene) as THREE.Group;
-  const origMats: THREE.Material[] = [];
-  scene.traverse((child) => {
-    if ((child as THREE.Mesh).isMesh) {
-      origMats.push((child as THREE.Mesh).material as THREE.Material);
-    }
-  });
-
-  let idx = 0;
-  cloned.traverse((child) => {
-    if ((child as THREE.Mesh).isMesh && idx < origMats.length) {
-      (child as THREE.Mesh).material = origMats[idx];
-      idx++;
-    }
-  });
-  return cloned;
-}
-
-function DinoWalker({
-  modelPath,
-  animSearch,
+function TRexWalker({
   startX,
   startZ,
   speed,
@@ -34,8 +13,6 @@ function DinoWalker({
   dinoScale,
   active,
 }: {
-  modelPath: string;
-  animSearch: string;
   startX: number;
   startZ: number;
   speed: number;
@@ -43,38 +20,35 @@ function DinoWalker({
   dinoScale: number;
   active: boolean;
 }) {
-  const gltf = useGLTF(modelPath);
-  const scene = useMemo(() => cloneWithMaterials(gltf.scene), [gltf.scene]);
-  const { actions, names } = useAnimations(gltf.animations, scene);
-  const ref = useRef<THREE.Group>(null!);
+  const { scene, materials, animations } = useGLTF("/models/t-rex.glb");
+  const clonedScene = useMemo(() => skeletonClone(scene), [scene]);
+  const { nodes } = useGraph(clonedScene) as any;
+
+  const group = useRef<THREE.Group>(null!);
+  const { actions, names } = useAnimations(animations, group);
 
   const pos = useRef(new THREE.Vector3(startX, 0, startZ));
-  const target = useRef(
-    new THREE.Vector3(
-      startX + (Math.random() - 0.5) * wanderRadius,
-      0,
-      startZ + (Math.random() - 0.5) * wanderRadius,
-    ),
-  );
+  const target = useRef(new THREE.Vector3(startX, 0, startZ));
 
   const currentScale = useRef(0.0001);
 
   useEffect(() => {
     if (!actions || names.length === 0) return;
-    const findName =
-      names.find((n) => n.toLowerCase().includes(animSearch)) ||
-      names.find((n) => n.toLowerCase().includes("walk")) ||
-      names[0];
-    const action = actions[findName || names[0]];
+
+    const walkAnimName =
+      names.find((n) => n.toLowerCase().includes("walk")) || names[0];
+    const action = actions[walkAnimName];
+
     if (action) {
       action.reset().play();
-      action.setEffectiveTimeScale(0.7 + Math.random() * 0.3);
+      action.setEffectiveTimeScale(0.8 + Math.random() * 0.4);
       action.setLoop(THREE.LoopRepeat, Infinity);
     }
-  }, [actions, names, animSearch]);
+  }, [actions, names]);
 
   useFrame((_, delta) => {
-    if (!ref.current) return;
+    if (!group.current) return;
+
     if (active) {
       currentScale.current = THREE.MathUtils.lerp(
         currentScale.current,
@@ -82,41 +56,95 @@ function DinoWalker({
         delta * 1.5,
       );
     }
-    ref.current.scale.set(
-      currentScale.current,
-      currentScale.current,
-      currentScale.current,
-    );
+    group.current.scale.setScalar(currentScale.current);
 
     if (!active) return;
 
-    const dir = new THREE.Vector3().subVectors(target.current, pos.current);
-    dir.y = 0;
-    const dist = dir.length();
+    const dirToTarget = new THREE.Vector3().subVectors(
+      target.current,
+      pos.current,
+    );
+    dirToTarget.y = 0;
+    const dist = dirToTarget.length();
 
-    if (dist < 2.0) {
-      const angle = Math.random() * Math.PI * 2;
-      const r = 2 + Math.random() * wanderRadius;
-      target.current.set(
-        startX + Math.cos(angle) * r,
-        0,
-        startZ + Math.sin(angle) * r,
-      );
+    // IA: Cone Frontal e Safe Zone
+    if (dist < 3.0) {
+      let valid = false;
+      let newX = 0,
+        newZ = 0;
+
+      for (let i = 0; i < 5; i++) {
+        const angle =
+          group.current.rotation.y + (Math.random() - 0.5) * Math.PI;
+        const r = 5 + Math.random() * wanderRadius;
+
+        newX = pos.current.x + Math.sin(angle) * r;
+        newZ = pos.current.z + Math.cos(angle) * r;
+
+        const distToCenter = Math.sqrt(newX * newX + newZ * newZ);
+        if (distToCenter > 18.0) {
+          valid = true;
+          break;
+        }
+      }
+
+      if (!valid) {
+        const angleOut = Math.atan2(pos.current.z, pos.current.x);
+        newX = Math.cos(angleOut) * 25.0;
+        newZ = Math.sin(angleOut) * 25.0;
+      }
+
+      target.current.set(newX, 0, newZ);
     }
 
-    dir.normalize();
-    pos.current.addScaledVector(dir, speed * delta);
-    pos.current.y = 0;
-    ref.current.position.copy(pos.current);
-
-    const targetRot = Math.atan2(dir.x, dir.z);
-    let diff = targetRot - ref.current.rotation.y;
+    // Inércia de rotação
+    const targetRot = Math.atan2(dirToTarget.x, dirToTarget.z);
+    let diff = targetRot - group.current.rotation.y;
     while (diff < -Math.PI) diff += Math.PI * 2;
     while (diff > Math.PI) diff -= Math.PI * 2;
-    ref.current.rotation.y += diff * delta * 1.5;
+
+    group.current.rotation.y += diff * delta * 0.6;
+
+    // Movimentação Frontal
+    const currentHeading = group.current.rotation.y;
+    const forwardX = Math.sin(currentHeading);
+    const forwardZ = Math.cos(currentHeading);
+
+    pos.current.x += forwardX * speed * delta;
+    pos.current.z += forwardZ * speed * delta;
+
+    group.current.position.copy(pos.current);
   });
 
-  return <primitive object={scene} ref={ref} />;
+  return (
+    <group ref={group} dispose={null}>
+      <group name="Sketchfab_Scene">
+        <group name="Sketchfab_model" rotation={[-Math.PI / 2, 0, 0]}>
+          <group
+            name="b812db92ca674797ac39fc7055901c91fbx"
+            rotation={[Math.PI / 2, 0, 0]}
+            scale={0.01}
+          >
+            <group name="Object_2">
+              <group name="RootNode">
+                <group name="Object_4">
+                  <primitive object={nodes._rootJoint} />
+                  <skinnedMesh
+                    name="Object_6"
+                    geometry={nodes.Object_6.geometry}
+                    material={materials.All0Mat00}
+                    skeleton={nodes.Object_6.skeleton}
+                    castShadow
+                    receiveShadow
+                  />
+                </group>
+              </group>
+            </group>
+          </group>
+        </group>
+      </group>
+    </group>
+  );
 }
 
 export function LandFauna() {
@@ -130,157 +158,34 @@ export function LandFauna() {
     return 0;
   }, [stage, progress]);
 
-  // Pteranodonte fica no céu desde o começo
-  const gltfPtero = useGLTF("/models/pteranodon_reuploaded_and_retextured.glb");
-  const pteroScene = useMemo(
-    () => cloneWithMaterials(gltfPtero.scene),
-    [gltfPtero.scene],
-  );
-  const { actions: pteroActions, names: pteroNames } = useAnimations(
-    gltfPtero.animations,
-    pteroScene,
-  );
-  const pteroRef = useRef<THREE.Group>(null!);
-  const pteroAngle = useRef(0);
-  const pteroClone = useMemo(
-    () => cloneWithMaterials(gltfPtero.scene),
-    [gltfPtero.scene],
-  );
-  const pteroClone2 = useMemo(
-    () => cloneWithMaterials(gltfPtero.scene),
-    [gltfPtero.scene],
-  );
-
-  useEffect(() => {
-    if (!pteroActions || pteroNames.length === 0) return;
-    const action = pteroActions[pteroNames[0]];
-    if (action) {
-      action.reset().play();
-      action.setEffectiveTimeScale(1.5);
-      action.setLoop(THREE.LoopRepeat, Infinity);
-    }
-  }, [pteroActions, pteroNames]);
-
-  useFrame((_, delta) => {
-    if (!pteroRef.current) return;
-    if (isAlive) {
-      pteroAngle.current += delta * 0.25;
-      const radius = 25;
-      pteroRef.current.position.set(
-        Math.cos(pteroAngle.current) * radius,
-        25,
-        Math.sin(pteroAngle.current) * radius,
-      );
-      pteroRef.current.rotation.y = -pteroAngle.current + Math.PI;
-      pteroRef.current.rotation.z = Math.PI / 10;
-    } else {
-      pteroRef.current.position.y += delta * 15;
-    }
-  });
-
-  // Gatilho exato da resposta
   const showDinos = evoT >= 0.7;
 
   return (
     <group>
-      {/* 🦅 Pteranodontes - Escalas corrigidas para ~6m de envergadura (0.008) */}
-      <primitive object={pteroScene} ref={pteroRef} scale={0.008} />
-      <primitive
-        object={pteroClone}
-        position={[15, 28, -25]}
-        scale={0.007}
-        rotation={[0, 1.2, 0.2]}
-      />
-      <primitive
-        object={pteroClone2}
-        position={[-15, 30, 15]}
-        scale={0.009}
-        rotation={[0, -0.5, -0.1]}
-      />
-
-      {/* 🦕 ESTEGOSSAUROS - Escalas corrigidas para ~3m (0.55) */}
       {showDinos && (
         <>
-          <DinoWalker
-            modelPath="/models/dino_hunter_deadly_shores_stegosaurus.glb"
-            animSearch="walk"
-            startX={3}
-            startZ={5}
-            speed={1.0}
-            wanderRadius={5}
-            dinoScale={0.55}
-            active={isAlive}
-          />
-          <DinoWalker
-            modelPath="/models/dino_hunter_deadly_shores_stegosaurus.glb"
-            animSearch="walk"
-            startX={-4}
-            startZ={2}
-            speed={1.1}
-            wanderRadius={5}
-            dinoScale={0.5}
-            active={isAlive}
-          />
-          <DinoWalker
-            modelPath="/models/dino_hunter_deadly_shores_stegosaurus.glb"
-            animSearch="walk"
-            startX={0}
-            startZ={7}
-            speed={1.4}
-            wanderRadius={6}
-            dinoScale={0.35}
-            active={isAlive}
-          />
-        </>
-      )}
-
-      {/* 🦕 PALUXYSAURUS - Escalas corrigidas para Colossais ~13m (0.015) */}
-      {showDinos && (
-        <>
-          <DinoWalker
-            modelPath="/models/paluxysaurus.glb"
-            animSearch="take"
-            startX={-8}
-            startZ={-5}
-            speed={0.8}
-            wanderRadius={8}
-            dinoScale={0.015}
-            active={isAlive}
-          />
-          <DinoWalker
-            modelPath="/models/paluxysaurus.glb"
-            animSearch="take"
-            startX={6}
-            startZ={-6}
-            speed={0.7}
-            wanderRadius={8}
-            dinoScale={0.012}
-            active={isAlive}
-          />
-        </>
-      )}
-
-      {/* 🦖 T-REX - Escalas corrigidas para ~4.5m (0.009) */}
-      {showDinos && (
-        <>
-          <DinoWalker
-            modelPath="/models/t-rex.glb"
-            animSearch="walk slow"
-            startX={-2}
-            startZ={-8}
-            speed={1.5}
-            wanderRadius={12}
-            dinoScale={0.009}
-            active={isAlive}
-          />
-          <DinoWalker
-            modelPath="/models/t-rex.glb"
-            animSearch="walk slow"
-            startX={8}
-            startZ={3}
-            speed={1.3}
+          <TRexWalker
+            startX={-25}
+            startZ={-25}
+            speed={2.5}
             wanderRadius={15}
-            dinoScale={0.008}
+            dinoScale={1.5}
+            active={isAlive}
+          />
+          <TRexWalker
+            startX={30}
+            startZ={10}
+            speed={2.0}
+            wanderRadius={18}
+            dinoScale={1.2}
+            active={isAlive}
+          />
+          <TRexWalker
+            startX={-15}
+            startZ={30}
+            speed={2.2}
+            wanderRadius={14}
+            dinoScale={1.4}
             active={isAlive}
           />
         </>
@@ -289,7 +194,4 @@ export function LandFauna() {
   );
 }
 
-useGLTF.preload("/models/pteranodon_reuploaded_and_retextured.glb");
-useGLTF.preload("/models/dino_hunter_deadly_shores_stegosaurus.glb");
-useGLTF.preload("/models/paluxysaurus.glb");
 useGLTF.preload("/models/t-rex.glb");

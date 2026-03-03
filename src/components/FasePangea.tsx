@@ -28,12 +28,15 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-// Substitua as cores no topo do arquivo FasePangea.tsx por estas:
-const FOG_PANGEA_START = "#ffaa88"; // Um rosa/laranja suave estilo pôr do sol alienígena
-const FOG_PANGEA_END = "#cc6655";
-const FOG_EXTINCTION = "#2a0800";
-const SUN_PANGEA = "#ffffff";
-const SUN_EXTINCTION = "#ff2200";
+const FOG_PANGEA_START = "#c2c8b8";
+const FOG_PANGEA_END = "#55aadd";
+const FOG_EXTINCTION = "#1a0500";
+const SUN_PANGEA = "#fff7e6";
+const SUN_EXTINCTION = "#ff3300";
+
+// CORES DO CHÃO PARA A LUZ HEMISFÉRICA
+const HEMI_GROUND_DRY = "#4a3525"; // Luz refletida por terra seca
+const HEMI_GROUND_LUSH = "#152e0a"; // Luz refletida por musgo vivo
 
 export function FasePangea() {
   const updateSimulation = useGameStore((state) => state.updateSimulation);
@@ -57,7 +60,14 @@ export function FasePangea() {
     return lerpColor("#ffaa55", SUN_EXTINCTION, (t - 0.5) * 2);
   }, [t]);
 
-  // CALIBRAÇÃO PBR: Luzes reduzidas para evitar o estouro de branco (Overexposure)
+  // Transição da cor da luz que reflete no chão
+  const hemiGroundColor = useMemo(() => {
+    if (t < 0.35) return new THREE.Color(HEMI_GROUND_DRY);
+    if (t < 0.5)
+      return lerpColor(HEMI_GROUND_DRY, HEMI_GROUND_LUSH, (t - 0.35) * 6.66);
+    return lerpColor(HEMI_GROUND_LUSH, "#110000", (t - 0.5) * 2);
+  }, [t]);
+
   const sunIntensity = t < 0.8 ? 1.8 : lerp(1.8, 0.3, (t - 0.8) * 5);
   const ambientIntensity = t < 0.8 ? 0.4 : lerp(0.4, 0.15, (t - 0.8) * 5);
 
@@ -124,9 +134,15 @@ export function FasePangea() {
         </div>
       </Html>
 
-      {/* LUZES CALIBRADAS */}
       <ambientLight intensity={ambientIntensity} color="#e8dcc8" />
-      <hemisphereLight intensity={0.4} color="#87CEEB" groundColor="#2d4a1e" />
+
+      {/* 💡 AQUI APLICAMOS A LUZ QUE ACOMPANHA A FASE */}
+      <hemisphereLight
+        intensity={0.4}
+        color="#87CEEB"
+        groundColor={hemiGroundColor}
+      />
+
       <directionalLight
         position={sunPosition}
         intensity={sunIntensity}
@@ -149,7 +165,7 @@ export function FasePangea() {
             segments={30}
             bounds={[8, 2, 2]}
             volume={8}
-            color="#f0d5c9"
+            color="#ffffff"
             position={[25, 28, -40]}
           />
           <Cloud
@@ -163,7 +179,7 @@ export function FasePangea() {
             segments={20}
             bounds={[6, 1, 1]}
             volume={6}
-            color="#e0e8f0"
+            color="#ffffff"
             position={[-35, 27, 15]}
           />
         </Clouds>
