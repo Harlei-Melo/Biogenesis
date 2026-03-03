@@ -1,4 +1,4 @@
-import { useRef, useMemo, useState } from "react";
+import { useRef, useMemo, useState, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Sparkles, Environment, Html, Clouds, Cloud } from "@react-three/drei";
 import * as THREE from "three";
@@ -11,6 +11,7 @@ import { LandFlora } from "./LandFlora";
 import { LandFauna } from "./LandFauna";
 import { ExtinctionMeteor } from "./ExtinctionMeteor";
 import { PangeaStoryteller } from "./PangeaStoryteller";
+import { CutsceneMeteoro } from "./CutsceneMeteoro";
 
 const STAGE_ORDER: EvolutionStage[] = ["Pangea", "Extinction"];
 
@@ -34,9 +35,8 @@ const FOG_EXTINCTION = "#1a0500";
 const SUN_PANGEA = "#fff7e6";
 const SUN_EXTINCTION = "#ff3300";
 
-// CORES DO CHÃO PARA A LUZ HEMISFÉRICA
-const HEMI_GROUND_DRY = "#4a3525"; // Luz refletida por terra seca
-const HEMI_GROUND_LUSH = "#152e0a"; // Luz refletida por musgo vivo
+const HEMI_GROUND_DRY = "#4a3525";
+const HEMI_GROUND_LUSH = "#152e0a";
 
 export function FasePangea() {
   const updateSimulation = useGameStore((state) => state.updateSimulation);
@@ -46,6 +46,31 @@ export function FasePangea() {
 
   const [introComplete, setIntroComplete] = useState(false);
   const introTimeRef = useRef(0);
+
+  // === ESTADOS DA TRANSIÇÃO ===
+  const [isBlinded, setIsBlinded] = useState(false);
+
+  // REFERÊNCIAS DO CLARÃO 3D
+  const flashRef = useRef<THREE.Mesh>(null!);
+  const flashTarget = useRef(0); // 0 = invisível, 1 = tela totalmente branca
+
+  useEffect(() => {
+    if (stage === "Extinction") {
+      // 1. Inicia o Fade In do plano 3D Branco
+      flashTarget.current = 1;
+
+      const timerMount = setTimeout(() => {
+        setIsBlinded(true); // Troca a Pangeia pelo Meteoro
+
+        // 2. Fade Out do plano Branco revelando o Espaço Sideral
+        setTimeout(() => {
+          flashTarget.current = 0;
+        }, 100);
+      }, 1500);
+
+      return () => clearTimeout(timerMount);
+    }
+  }, [stage]);
 
   const fogColor = useMemo(() => {
     if (t < 0.35) return new THREE.Color(FOG_PANGEA_START);
@@ -60,7 +85,6 @@ export function FasePangea() {
     return lerpColor("#ffaa55", SUN_EXTINCTION, (t - 0.5) * 2);
   }, [t]);
 
-  // Transição da cor da luz que reflete no chão
   const hemiGroundColor = useMemo(() => {
     if (t < 0.35) return new THREE.Color(HEMI_GROUND_DRY);
     if (t < 0.5)
@@ -81,6 +105,25 @@ export function FasePangea() {
 
   useFrame((state, delta) => {
     updateSimulation(delta);
+
+    // 🔴 A MÁGICA DA CÂMERA: O CLARÃO PERFEITO 🔴
+    if (flashRef.current) {
+      // 1. Copia a posição da lente
+      flashRef.current.position.copy(state.camera.position);
+      // 2. COPIA A ROTAÇÃO! Isso impede o quadrado de ficar torto!
+      flashRef.current.quaternion.copy(state.camera.quaternion);
+      // 3. Move o plano exatamente meio metro pra frente da lente
+      flashRef.current.translateZ(-0.5);
+
+      const mat = flashRef.current.material as THREE.MeshBasicMaterial;
+      if (flashTarget.current === 1) {
+        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 1.0, delta * 3.0); // Clareia
+      } else if (flashTarget.current === 0 && mat.opacity > 0) {
+        mat.opacity = THREE.MathUtils.lerp(mat.opacity, 0.0, delta * 5.0); // Apaga
+      }
+    }
+
+    if (isBlinded) return;
 
     if (!introComplete) {
       introTimeRef.current += delta;
@@ -118,88 +161,104 @@ export function FasePangea() {
       <color attach="background" ref={bgRef} args={[FOG_PANGEA_START]} />
       <fogExp2 attach="fog" args={[FOG_PANGEA_START, 0.018]} ref={fogRef} />
 
-      <Environment preset="forest" background={false} />
+      {/* A CORTINA BRANCA 3D (Substituiu a DIV HTML falha) */}
+      <mesh ref={flashRef} renderOrder={999999}>
+        <planeGeometry args={[100, 100]} />
+        <meshBasicMaterial
+          color="#ffffff"
+          transparent
+          opacity={0}
+          depthTest={false}
+          depthWrite={false}
+          fog={false}
+        />
+      </mesh>
 
-      <Html fullscreen zIndexRange={[100, 0]}>
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-          }}
-        >
-          <PangeaStoryteller />
-        </div>
+      <Html fullscreen zIndexRange={[1000, 0]}>
+        {!isBlinded && (
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+            }}
+          >
+            <PangeaStoryteller />
+          </div>
+        )}
       </Html>
 
-      <ambientLight intensity={ambientIntensity} color="#e8dcc8" />
+      {!isBlinded ? (
+        <>
+          <Environment preset="forest" background={false} />
+          <ambientLight intensity={ambientIntensity} color="#e8dcc8" />
+          <hemisphereLight
+            intensity={0.4}
+            color="#87CEEB"
+            groundColor={hemiGroundColor}
+          />
+          <directionalLight
+            position={sunPosition}
+            intensity={sunIntensity}
+            color={sunColor}
+            castShadow
+            shadow-mapSize={[1024, 1024]}
+            shadow-bias={-0.0001}
+          />
 
-      {/* 💡 AQUI APLICAMOS A LUZ QUE ACOMPANHA A FASE */}
-      <hemisphereLight
-        intensity={0.4}
-        color="#87CEEB"
-        groundColor={hemiGroundColor}
-      />
+          {t < 0.8 && (
+            <Clouds material={THREE.MeshBasicMaterial}>
+              <Cloud
+                segments={40}
+                bounds={[10, 2, 2]}
+                volume={10}
+                color="#ffffff"
+                position={[-20, 25, -30]}
+              />
+              <Cloud
+                segments={30}
+                bounds={[8, 2, 2]}
+                volume={8}
+                color="#ffffff"
+                position={[25, 28, -40]}
+              />
+              <Cloud
+                segments={50}
+                bounds={[15, 3, 3]}
+                volume={12}
+                color="#ffffff"
+                position={[5, 26, 35]}
+              />
+              <Cloud
+                segments={20}
+                bounds={[6, 1, 1]}
+                volume={6}
+                color="#ffffff"
+                position={[-35, 27, 15]}
+              />
+            </Clouds>
+          )}
 
-      <directionalLight
-        position={sunPosition}
-        intensity={sunIntensity}
-        color={sunColor}
-        castShadow
-        shadow-mapSize={[1024, 1024]}
-        shadow-bias={-0.0001}
-      />
+          <ProceduralGround fogColor={fogColor} />
+          <ProceduralGrass />
+          <LandFlora />
+          <LandFauna />
+          <ExtinctionMeteor />
 
-      {t < 0.8 && (
-        <Clouds material={THREE.MeshBasicMaterial}>
-          <Cloud
-            segments={40}
-            bounds={[10, 2, 2]}
-            volume={10}
-            color="#ffffff"
-            position={[-20, 25, -30]}
+          <Sparkles
+            count={t < 0.8 ? 80 : 200}
+            scale={50}
+            size={2}
+            speed={0.3}
+            opacity={0.4}
+            color={t < 0.8 ? "#d4e8c2" : "#ff5500"}
           />
-          <Cloud
-            segments={30}
-            bounds={[8, 2, 2]}
-            volume={8}
-            color="#ffffff"
-            position={[25, 28, -40]}
-          />
-          <Cloud
-            segments={50}
-            bounds={[15, 3, 3]}
-            volume={12}
-            color="#ffffff"
-            position={[5, 26, 35]}
-          />
-          <Cloud
-            segments={20}
-            bounds={[6, 1, 1]}
-            volume={6}
-            color="#ffffff"
-            position={[-35, 27, 15]}
-          />
-        </Clouds>
+        </>
+      ) : (
+        <CutsceneMeteoro />
       )}
-
-      {/* 🌿 NOSSOS MÓDULOS DE ALTO NÍVEL 🌿 */}
-      <ProceduralGround fogColor={fogColor} />
-      <ProceduralGrass />
-      <LandFlora />
-      <LandFauna />
-      <ExtinctionMeteor />
-
-      <Sparkles
-        count={t < 0.8 ? 80 : 200}
-        scale={50}
-        size={2}
-        speed={0.3}
-        opacity={0.4}
-        color={t < 0.8 ? "#d4e8c2" : "#ff5500"}
-      />
     </>
   );
 }
