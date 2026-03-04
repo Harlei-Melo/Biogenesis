@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useThree, useFrame } from "@react-three/fiber";
+import { useThree } from "@react-three/fiber"; // 🔴 O useFrame fantasma foi removido daqui
 import { Stars, OrbitControls, Html } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
@@ -71,8 +71,7 @@ export function FaseHumanidade() {
     camera.position.set(0, 5, 12); // Posição inicial épica
   }, [scene, camera]);
 
-  // 🔴 O "DIRETOR" FOI DEMITIDO: A câmera não se move mais sozinha.
-  // Deixamos o controle total para o usuário no OrbitControls abaixo.
+  // O controle total fica com o usuário no OrbitControls abaixo.
 
   const activeJourney =
     activeJourneyIndex !== null ? JOURNEYS[activeJourneyIndex] : null;
@@ -103,7 +102,7 @@ export function FaseHumanidade() {
         speed={1}
       />
 
-      {/* 🔴 ALINHAMENTO: Math.PI (180 graus) alinha Londres no centro do mapa 8K */}
+      {/* ALINHAMENTO: Math.PI (180 graus) alinha Londres no centro do mapa 8K */}
       <PlanetaModerno
         activeJourney={activeJourney}
         rotation={[0, Math.PI, 0]}
