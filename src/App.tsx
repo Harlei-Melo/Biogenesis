@@ -1,5 +1,6 @@
 import { useState, useEffect, Suspense } from "react";
 import { Canvas } from "@react-three/fiber";
+
 import { FaseAtmosfera } from "./components/FaseAtmosfera";
 import { FaseOceano } from "./components/FaseOceano";
 import { FasePangea } from "./components/FasePangea";
@@ -8,17 +9,10 @@ import { useGameStore } from "./store/gameStore";
 
 import { IceAgeTransition } from "./components/IceAgeTransition";
 import { FaseGlacial } from "./components/FaseGlacial";
-// 🔴 IMPORTAÇÃO DA FASE FINAL (Certifique-se de ter criado o arquivo FaseHumanidade.tsx)
 import { FaseHumanidade } from "./components/FaseHumanidade";
 
-function Loader() {
-  return (
-    <mesh>
-      <sphereGeometry args={[0.5, 16, 16]} />
-      <meshBasicMaterial color="orange" wireframe />
-    </mesh>
-  );
-}
+// 🔴 IMPORTAMOS O NOVO LOADER GLSL
+import { GlobalLoader } from "./components/GlobalLoader";
 
 /**
  * Mapeia o estágio interno da gameStore para a "fase visual" (tela) correspondente.
@@ -34,9 +28,9 @@ function stageToFase(stage: string): number {
     case "Extinction":
       return 2; // Terra Firme
     case "IceAge":
-      return 3; // 🔴 Transição da Era do Gelo
+      return 3; // Transição da Era do Gelo
     case "Humanity":
-      return 4; // 🔴 Terra Moderna (A fase final)
+      return 4; // Terra Moderna (A fase final)
     default:
       return 0; // Atmosfera (Hadean)
   }
@@ -174,7 +168,8 @@ export default function App() {
       <Canvas camera={{ position: [0, 0, 10] }} dpr={1}>
         <color attach="background" args={["#020202"]} />
 
-        <Suspense fallback={<Loader />}>
+        {/* 🔴 O SUSPENSE AGORA CHAMA DIRETAMENTE O GLOBAL LOADER */}
+        <Suspense fallback={<GlobalLoader />}>
           {faseAtual === 0 && (
             <FaseAtmosfera
               onEnergiaChange={(valor) => setEnergiaHUD(valor)}
@@ -186,10 +181,8 @@ export default function App() {
           )}
           {faseAtual === 1 && <FaseOceano />}
           {faseAtual === 2 && <FasePangea />}
-
           {faseAtual === 3 && <FaseGlacial />}
 
-          {/* 🔴 AQUI A TERRA MODERNA ENTRA EM CENA */}
           {faseAtual === 4 && (
             <group>
               <FaseHumanidade />
