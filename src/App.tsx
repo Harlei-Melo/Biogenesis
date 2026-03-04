@@ -6,9 +6,10 @@ import { FasePangea } from "./components/FasePangea";
 import { AudioManager } from "./components/AudioManager";
 import { useGameStore } from "./store/gameStore";
 
-// 🔴 IMPORTANDO A NOVA TRANSIÇÃO E A CENA 3D DO GELO
 import { IceAgeTransition } from "./components/IceAgeTransition";
 import { FaseGlacial } from "./components/FaseGlacial";
+// 🔴 IMPORTAÇÃO DA FASE FINAL (Certifique-se de ter criado o arquivo FaseHumanidade.tsx)
+import { FaseHumanidade } from "./components/FaseHumanidade";
 
 function Loader() {
   return (
@@ -72,10 +73,8 @@ export default function App() {
     } else if (faseAtual === 2 && stage === "Pangea") {
       useGameStore.setState({ stage: "Extinction", progress: 0 });
     } else if (faseAtual === 2 && stage === "Extinction") {
-      // 🔴 Pula do Meteoro caindo direto pra caixinha de vidro da Era do Gelo!
       useGameStore.setState({ stage: "IceAge", progress: 0 });
     } else if (faseAtual === 3) {
-      // 🔴 Pula da Era do Gelo para a Terra Moderna
       useGameStore.setState({ stage: "Humanity", progress: 0 });
     } else {
       setFaseAtual(0);
@@ -99,10 +98,8 @@ export default function App() {
     <>
       <AudioManager faseAtual={faseAtual} />
 
-      {/* 🔴 A UI DA ERA DO GELO É RENDERIZADA FORA DO CANVAS 🔴 */}
       {stage === "IceAge" && <IceAgeTransition />}
 
-      {/* 🔴 ESCONDEMOS O HUD DURANTE A ERA DO GELO PARA IMERSÃO TOTAL 🔴 */}
       {stage !== "IceAge" && (
         <div
           style={{
@@ -174,11 +171,7 @@ export default function App() {
         </div>
       )}
 
-      <Canvas
-        camera={{ position: [0, 0, 10] }}
-        dpr={[1, 2]}
-        gl={{ antialias: true }}
-      >
+      <Canvas camera={{ position: [0, 0, 10] }} dpr={1}>
         <color attach="background" args={["#020202"]} />
 
         <Suspense fallback={<Loader />}>
@@ -194,13 +187,12 @@ export default function App() {
           {faseAtual === 1 && <FaseOceano />}
           {faseAtual === 2 && <FasePangea />}
 
-          {/* 🔴 O MUNDO 3D CONGELADO APARECE AQUI NA FASE 3 */}
           {faseAtual === 3 && <FaseGlacial />}
 
-          {/* 🔴 AQUI ENTRARÁ O NOSSO HADEANO REAPROVEITADO PARA A TERRA MODERNA */}
+          {/* 🔴 AQUI A TERRA MODERNA ENTRA EM CENA */}
           {faseAtual === 4 && (
             <group>
-              {/* O componente FaseHumanidade entrará aqui em breve */}
+              <FaseHumanidade />
             </group>
           )}
         </Suspense>
