@@ -27,6 +27,8 @@ export function CutsceneMeteoro() {
     loop: true,
     muted: true,
     start: true,
+    playsInline: true, // 🔴 SALVA-VIDAS DE CELULAR: Permite tocar no fundo
+    crossOrigin: "Anonymous", // 🔴 Evita bloqueios de segurança do navegador
   });
 
   useFrame((state, delta) => {
