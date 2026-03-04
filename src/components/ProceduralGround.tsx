@@ -17,11 +17,12 @@ export function ProceduralGround({ fogColor }: { fogColor: THREE.Color }) {
       shader.uniforms.uSkyColor = { value: new THREE.Color() };
       shader.uniforms.uTime = { value: 0 };
       shader.uniforms.uProgress = { value: 0 };
+      // 🔴 NOVO: Uniforme que controla o nível de congelamento
+      shader.uniforms.uIceProgress = { value: 0 };
 
       mat.userData.shader = shader;
 
-      // 1. VERTEX SHADER: Criando a Matriz TBN (Tangente, Bitangente, Normal)
-      // Essa é a forma segura e sem bugs de calcular onde a luz deve bater no relevo
+      // 1. VERTEX SHADER
       shader.vertexShader = `
         varying vec2 vLocalPos;
         varying vec3 vViewTangent;
@@ -40,18 +41,19 @@ export function ProceduralGround({ fogColor }: { fogColor: THREE.Color }) {
         `,
       );
 
-      // 2. FRAGMENT SHADER: O Motor de Ruído (Safe Mode)
+      // 2. FRAGMENT SHADER
       shader.fragmentShader = `
         uniform vec3 uSkyColor;
         uniform float uTime;
         uniform float uProgress;
+        uniform float uIceProgress; // 🔴 INJETADO AQUI
         
         varying vec2 vLocalPos;
         varying vec3 vViewTangent;
         varying vec3 vViewBitangent;
         varying vec3 vViewNormal;
         
-        // HASH SEGURO (Dave_Hoskins): Zero warnings de double precision
+        // HASH SEGURO
         float hash(vec2 p) {
             vec3 p3  = fract(vec3(p.xyx) * 0.1031);
             p3 += dot(p3, p3.yzx + 33.33);
@@ -62,7 +64,6 @@ export function ProceduralGround({ fogColor }: { fogColor: THREE.Color }) {
             vec2 i = floor(x);
             vec2 f = fract(x);
             
-            // Curva Quíntica: Mais bonita e elimina o erro X4122
             vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
             
             float a = hash(i + vec2(0.0, 0.0));
@@ -96,7 +97,7 @@ export function ProceduralGround({ fogColor }: { fogColor: THREE.Color }) {
         ${shader.fragmentShader}
       `;
 
-      // 3. NORMAL MAPPING: Sombras precisas e Relevo
+      // 3. NORMAL MAPPING
       shader.fragmentShader = shader.fragmentShader.replace(
         `#include <normal_fragment_begin>`,
         `#include <normal_fragment_begin>
@@ -106,14 +107,13 @@ export function ProceduralGround({ fogColor }: { fogColor: THREE.Color }) {
          float hX = terrainHeight(vLocalPos + vec2(eps, 0.0));
          float hY = terrainHeight(vLocalPos + vec2(0.0, eps));
 
-         // Multiplicação por 100 (* 100.0) resolve o erro de DIVISÃO POR ZERO (X4008)
          float dX = (hX - h0) * 100.0;
          float dY = (hY - h0) * 100.0;
 
-         float bumpStrength = 1.5; 
-         vec3 localBump = normalize(vec3(-dX * bumpStrength, -dY * bumpStrength, 1.0));
+         // O gelo deixa o relevo levemente mais suave (preenche buracos)
+         float currentBump = mix(1.5, 0.8, uIceProgress); 
+         vec3 localBump = normalize(vec3(-dX * currentBump, -dY * currentBump, 1.0));
          
-         // Injeção Matemática Perfeita do TBN (Relevo real na malha do Three.js)
          normal = normalize(
              vViewTangent * localBump.x +
              vViewBitangent * localBump.y +
@@ -122,16 +122,18 @@ export function ProceduralGround({ fogColor }: { fogColor: THREE.Color }) {
         `,
       );
 
-      // 4. ROUGHNESS: Poeira e Areia Fosca, Pedras brilhantes
+      // 4. ROUGHNESS: Gelo é mais liso que areia
       shader.fragmentShader = shader.fragmentShader.replace(
         `#include <roughnessmap_fragment>`,
         `#include <roughnessmap_fragment>
          float rHeight = terrainHeight(vLocalPos);
-         roughnessFactor = mix(0.5, 1.0, rHeight);
+         float baseRoughness = mix(0.5, 1.0, rHeight);
+         // 🔴 O Gelo reflete a luz de forma mais suave e brilhante
+         roughnessFactor = mix(baseRoughness, 0.35, uIceProgress);
         `,
       );
 
-      // 5. ESTRATIFICAÇÃO DE CORES DA TERRA
+      // 5. ESTRATIFICAÇÃO DE CORES DA TERRA + NEVE
       shader.fragmentShader = shader.fragmentShader.replace(
         `#include <color_fragment>`,
         `#include <color_fragment>
@@ -139,25 +141,39 @@ export function ProceduralGround({ fogColor }: { fogColor: THREE.Color }) {
          float alt = terrainHeight(vLocalPos);
 
          // Fase 1: Árida
-         vec3 dryEarth = vec3(0.18, 0.12, 0.08); // Fendas escuras
-         vec3 dryClay  = vec3(0.35, 0.25, 0.15); // Barro
-         vec3 dryDust  = vec3(0.48, 0.38, 0.24); // Areia nos picos
+         vec3 dryEarth = vec3(0.18, 0.12, 0.08);
+         vec3 dryClay  = vec3(0.35, 0.25, 0.15);
+         vec3 dryDust  = vec3(0.48, 0.38, 0.24);
 
          vec3 colorDry = mix(dryEarth, dryClay, smoothstep(0.2, 0.4, alt));
          colorDry      = mix(colorDry, dryDust, smoothstep(0.4, 0.7, alt));
 
          // Fase 2: Fértil
-         vec3 lushMud  = vec3(0.05, 0.08, 0.02);  // Lodo
-         vec3 lushMoss = vec3(0.15, 0.22, 0.08);  // Musgo
-         vec3 lushRock = vec3(0.22, 0.26, 0.14);  // Pedras com limo
+         vec3 lushMud  = vec3(0.05, 0.08, 0.02);
+         vec3 lushMoss = vec3(0.15, 0.22, 0.08);
+         vec3 lushRock = vec3(0.22, 0.26, 0.14);
 
          vec3 colorLush = mix(lushMud, lushMoss, smoothstep(0.2, 0.4, alt));
          colorLush      = mix(colorLush, lushRock, smoothstep(0.4, 0.7, alt));
 
+         // 🔴 Fase 3: Era do Gelo
+         vec3 iceDeep   = vec3(0.40, 0.50, 0.60); // Gelo sujo/escuro nos vales
+         vec3 iceFrost  = vec3(0.75, 0.80, 0.85); // Geada
+         vec3 snowPeak  = vec3(0.95, 0.95, 1.00); // Neve pura nos topos
+
+         vec3 colorIce = mix(iceDeep, iceFrost, smoothstep(0.2, 0.4, alt));
+         colorIce      = mix(colorIce, snowPeak, smoothstep(0.4, 0.7, alt));
+
+         // Mistura Pangeia
          vec3 finalTerrain = mix(colorDry, colorLush, smoothstep(0.2, 0.8, uProgress));
+         
+         // 🔴 Mistura Era do Gelo por cima de tudo
+         finalTerrain = mix(finalTerrain, colorIce, uIceProgress);
 
          // Cavity Map: Profundidade visual
          float cavity = mix(0.3, 1.0, smoothstep(0.1, 0.5, alt));
+         // A neve preenche as sombras, tornando as fendas menos escuras
+         cavity = mix(cavity, 0.8, uIceProgress);
 
          diffuseColor.rgb = finalTerrain * cavity;
         `,
@@ -174,26 +190,39 @@ export function ProceduralGround({ fogColor }: { fogColor: THREE.Color }) {
       );
     };
 
-    mat.customProgramCacheKey = () => "ground_inigo_quilez_v3_safe";
+    mat.customProgramCacheKey = () => "ground_inigo_quilez_v4_ice";
 
     return mat;
   }, []);
 
   useFrame((state) => {
+    // Progresso da vida (Sopa -> Pangeia)
     const evo =
       stage === "Pangea" ? progress / 100 : stage === "Extinction" ? 1.0 : 0;
-    const targetProgress = evo >= 0.25 ? 1.0 : 0.0;
+    const targetProgress = evo >= 0.25 || stage === "IceAge" ? 1.0 : 0.0;
+
+    // 🔴 Controle do Gelo! Se a fase for IceAge, o chão congela.
+    const targetIce = stage === "IceAge" ? 1.0 : 0.0;
 
     if (groundMaterial.userData.shader) {
       groundMaterial.userData.shader.uniforms.uTime.value =
         state.clock.elapsedTime;
       groundMaterial.userData.shader.uniforms.uSkyColor.value.copy(fogColor);
 
+      // Interpolação do mato
       groundMaterial.userData.shader.uniforms.uProgress.value =
         THREE.MathUtils.lerp(
           groundMaterial.userData.shader.uniforms.uProgress.value,
           targetProgress,
           0.02,
+        );
+
+      // Interpolação da neve (Esfria devagar)
+      groundMaterial.userData.shader.uniforms.uIceProgress.value =
+        THREE.MathUtils.lerp(
+          groundMaterial.userData.shader.uniforms.uIceProgress.value,
+          targetIce,
+          0.015,
         );
     }
   });

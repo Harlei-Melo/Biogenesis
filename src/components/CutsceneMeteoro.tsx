@@ -2,9 +2,12 @@ import { useRef, useEffect, useMemo } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Stars, useVideoTexture, Cloud } from "@react-three/drei";
 import * as THREE from "three";
+import { useGameStore } from "../store/gameStore"; // 🔴 IMPORTAÇÃO DA STORE AQUI
 
 export function CutsceneMeteoro() {
   const { scene } = useThree();
+  const setStage = useGameStore((state) => state.setStage); // 🔴 PUXANDO A FUNÇÃO DE MUDAR DE FASE
+
   const shakeIntensity = useRef(0);
   const progressRef = useRef(0);
   const flashRef = useRef<THREE.Mesh>(null!);
@@ -27,13 +30,11 @@ export function CutsceneMeteoro() {
     loop: true,
     muted: true,
     start: true,
-    playsInline: true, // 🔴 SALVA-VIDAS DE CELULAR: Permite tocar no fundo
-    crossOrigin: "Anonymous", // 🔴 Evita bloqueios de segurança do navegador
+    playsInline: true,
+    crossOrigin: "Anonymous",
   });
 
   useFrame((state, delta) => {
-    // 🔴 1. CONTROLE DE TEMPO AQUI! (Mudei de 0.08 para 0.04)
-    // Isso faz a animação demorar o dobro do tempo (~25 segundos)
     progressRef.current += delta * 0.04;
     const currentAtmos = Math.min(progressRef.current, 1.0);
 
@@ -87,17 +88,16 @@ export function CutsceneMeteoro() {
       }
     }
 
+    // 🔴 O GATILHO DO FIM DO MUNDO 🔴
     if (currentAtmos >= 0.99) {
       meteoroTexture.dispose();
+      setStage("IceAge"); // Joga o usuário para a transição HTML da Era do Gelo!
     }
   });
 
   return (
     <group>
-      {/* 🔴 2. LUZES ADICIONADAS PARA AS NUVENS 🔴 */}
-      {/* Luz ambiente para as nuvens não ficarem no breu total */}
       <ambientLight intensity={1.5} color="#667788" />
-      {/* Uma luz fortíssima e laranja vindo da posição do meteoro! */}
       <pointLight
         position={[0, 0, -5]}
         intensity={200}
@@ -138,7 +138,7 @@ export function CutsceneMeteoro() {
         />
       </mesh>
 
-      {/* CAMADA 3: AS NUVENS (Agora iluminadas pelo meteoro) */}
+      {/* CAMADA 3: AS NUVENS */}
       <group>
         <Cloud
           position={[-12, 8, 10]}

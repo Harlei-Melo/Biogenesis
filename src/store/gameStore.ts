@@ -1,25 +1,25 @@
 import { create } from "zustand";
 
-export type EvolutionStage =
-  | "AminoAcids"
-  | "RNA"
-  | "Protocell"
-  | "Life"
-  | "Pangea"
-  | "Extinction";
+export type EvolutionStage = 
+  | "AminoAcids" 
+  | "RNA" 
+  | "Protocell" 
+  | "Life" 
+  | "Pangea" 
+  | "Extinction" 
+  | "IceAge" 
+  | "Humanity"; // <--- FASES ADICIONADAS
 
 interface GameState {
-  // Parameters controlled by the user
   parameters: {
-    temperature: number; // 0.0 to 1.0 (Cold -> Hot)
-    energy: number; // 0.0 to 1.0 (Calm -> Storm/Volcanic)
-    turbulence: number; // 0.0 to 1.0 (Stagnant -> Chaotic)
+    temperature: number;
+    energy: number;
+    turbulence: number;
   };
 
-  // Progress
   stage: EvolutionStage;
-  progress: number; // 0 to 100% for the current stage
-  stability: number; // 0 to 100% (Must be high to progress)
+  progress: number;
+  stability: number; 
 
   setParameter: (
     param: "temperature" | "energy" | "turbulence",
@@ -27,9 +27,11 @@ interface GameState {
   ) => void;
   updateSimulation: (delta: number) => void;
 
-  // Novas ações para o Storyteller da Pangeia
   avancarPangea: (novoProgresso: number) => void;
   triggerExtincao: () => void;
+  
+  // 🔴 NOVO: Função universal para forçar a mudança de fase (usada pela Cutscene e pela UI do Gelo)
+  setStage: (stage: EvolutionStage) => void; 
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -38,10 +40,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   progress: 0,
   stability: 100,
 
-  // Implementação das novas ações
   avancarPangea: (novoProgresso) => set({ progress: novoProgresso }),
-  triggerExtincao: () =>
-    set({ stage: "Extinction", progress: 0, stability: 50 }),
+  triggerExtincao: () => set({ stage: "Extinction", progress: 0, stability: 50 }),
+  
+  // 🔴 IMPLEMENTAÇÃO DO setStage
+  setStage: (stage) => set({ stage, progress: 0, stability: 100 }),
 
   setParameter: (param, value) =>
     set((state) => ({
@@ -51,29 +54,24 @@ export const useGameStore = create<GameState>((set, get) => ({
   updateSimulation: (delta) => {
     const { parameters, stage, progress, stability } = get();
 
-    // Simulation Logic (Simplified "Goldilocks Zone")
     let targetTemp = 0.5;
     let targetEnergy = 0.5;
 
-    // Different stages need different conditions
     if (stage === "AminoAcids") {
-      targetTemp = 0.8; // Needs heat
-      targetEnergy = 0.8; // Needs lightning/volcano
+      targetTemp = 0.8; 
+      targetEnergy = 0.8; 
     } else if (stage === "RNA") {
-      targetTemp = 0.5; // Needs cycling (avg medium)
+      targetTemp = 0.5; 
       targetEnergy = 0.5;
     } else if (stage === "Protocell") {
-      targetTemp = 0.3; // Needs creating cooling/stability
+      targetTemp = 0.3; 
       targetEnergy = 0.2;
     }
 
-    // Calculate alignment with targets
     const tempDist = Math.abs(parameters.temperature - targetTemp);
     const energyDist = Math.abs(parameters.energy - targetEnergy);
-    const conditionScore = 1.0 - (tempDist + energyDist) / 2; // 1.0 is perfect
+    const conditionScore = 1.0 - (tempDist + energyDist) / 2; 
 
-    // Update Stability
-    // Turbulence hurts stability, usually
     const newStability = Math.min(
       100,
       Math.max(
@@ -84,22 +82,19 @@ export const useGameStore = create<GameState>((set, get) => ({
       ),
     );
 
-    // Update Progress (only if stable)
     let newProgress = progress;
 
-    // O progresso em 'Pangea' agora é controlado pelo jogador via PangeaStoryteller.
-    // Em 'Extinction', o meteoro cai automaticamente com o tempo.
     if (stage === "Extinction") {
-      newProgress += delta * 3; // ~33 segundos para o meteoro completar a queda
+      newProgress += delta * 3; 
     } else if (
-      stage !== "Pangea" &&
+      // 🔴 PROTEÇÃO AAA: Garante que as fases novas não progridam sozinhas com a matemática velha
+      ["AminoAcids", "RNA", "Protocell", "Life"].includes(stage) &&
       newStability > 50 &&
       conditionScore > 0.7
     ) {
-      newProgress += delta * 5; // Grow 5% per second if conditions are good na Sopa
+      newProgress += delta * 5; 
     }
 
-    // Check Stage Complete
     if (newProgress >= 100) {
       let nextStage: EvolutionStage = stage;
 
@@ -110,12 +105,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       else if (stage === "Pangea") nextStage = "Extinction";
 
       if (nextStage !== stage) {
-        set({ stage: nextStage, progress: 0, stability: 50 }); // Reset for next stage
+        set({ stage: nextStage, progress: 0, stability: 50 }); 
         return;
       }
     }
 
-    // Se passamos da extinção... trava pra sempre no 100 como fundo escuro.
     if (stage === "Extinction" && newProgress >= 100) {
       newProgress = 100;
     }

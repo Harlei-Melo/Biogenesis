@@ -6,7 +6,10 @@ import { FasePangea } from "./components/FasePangea";
 import { AudioManager } from "./components/AudioManager";
 import { useGameStore } from "./store/gameStore";
 
-// Pequeno componente para mostrar que está carregando
+// 🔴 IMPORTANDO A NOVA TRANSIÇÃO E A CENA 3D DO GELO
+import { IceAgeTransition } from "./components/IceAgeTransition";
+import { FaseGlacial } from "./components/FaseGlacial";
+
 function Loader() {
   return (
     <mesh>
@@ -29,6 +32,10 @@ function stageToFase(stage: string): number {
     case "Pangea":
     case "Extinction":
       return 2; // Terra Firme
+    case "IceAge":
+      return 3; // 🔴 Transição da Era do Gelo
+    case "Humanity":
+      return 4; // 🔴 Terra Moderna (A fase final)
     default:
       return 0; // Atmosfera (Hadean)
   }
@@ -38,10 +45,10 @@ export default function App() {
   const [faseAtual, setFaseAtual] = useState(0);
   const [energiaHUD, setEnergiaHUD] = useState(0);
 
-  // Escuta a store global para detectar transição automática
   const stage = useGameStore((s) => s.stage);
 
   useEffect(() => {
+    // Sincroniza a store com a tela visual (incluindo as novas fases)
     if (faseAtual >= 1) {
       const novaFase = stageToFase(stage);
       if (novaFase !== faseAtual) {
@@ -53,7 +60,6 @@ export default function App() {
   // --- 🛠️ DEV ONLY: Função para pular fases ---
   const handleSkipPhase = () => {
     if (faseAtual === 0) {
-      // Pula da Atmosfera para o Oceano
       setFaseAtual(1);
       setEnergiaHUD(0);
       useGameStore.setState({
@@ -62,13 +68,16 @@ export default function App() {
         stability: 100,
       });
     } else if (faseAtual === 1) {
-      // Pula do Oceano para a Pangeia
       useGameStore.setState({ stage: "Pangea", progress: 0 });
     } else if (faseAtual === 2 && stage === "Pangea") {
-      // Pula da Pangeia direto para o Meteoro caindo (útil para nossos próximos testes!)
       useGameStore.setState({ stage: "Extinction", progress: 0 });
+    } else if (faseAtual === 2 && stage === "Extinction") {
+      // 🔴 Pula do Meteoro caindo direto pra caixinha de vidro da Era do Gelo!
+      useGameStore.setState({ stage: "IceAge", progress: 0 });
+    } else if (faseAtual === 3) {
+      // 🔴 Pula da Era do Gelo para a Terra Moderna
+      useGameStore.setState({ stage: "Humanity", progress: 0 });
     } else {
-      // Dá a volta e reinicia do zero
       setFaseAtual(0);
       useGameStore.setState({
         stage: "AminoAcids",
@@ -78,87 +87,92 @@ export default function App() {
     }
   };
 
-  // Títulos das fases
   const FASE_TITLES: Record<number, string> = {
     0: "Fase 1: Atmosfera",
     1: "Fase 2: Sopa Primordial",
     2: "Fase 3: Terra Firme (Pangea)",
+    3: "", // Era do gelo não tem título superior
+    4: "Fase Final: Terra Moderna",
   };
 
   return (
     <>
-      {/* Gerenciador de áudio (sem UI) */}
       <AudioManager faseAtual={faseAtual} />
 
-      <div
-        style={{
-          position: "absolute",
-          top: 12,
-          left: 12,
-          right: 12,
-          color: "white",
-          zIndex: 999,
-          pointerEvents: "none",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              margin: 0,
-              textTransform: "uppercase",
-              fontSize: "clamp(0.85rem, 3.5vw, 1.5rem)",
-              lineHeight: 1.2,
-            }}
-          >
-            {FASE_TITLES[faseAtual]}
-          </h1>
-          {faseAtual === 0 && (
-            <div
-              style={{
-                maxWidth: "300px",
-                width: "70%",
-                height: "8px",
-                background: "rgba(255,255,255,0.1)",
-                marginTop: "8px",
-                borderRadius: "4px",
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  width: `${energiaHUD}%`,
-                  height: "100%",
-                  background: "linear-gradient(90deg, #ff8800, #00ff88)",
-                  transition: "width 0.3s",
-                }}
-              />
-            </div>
-          )}
-        </div>
+      {/* 🔴 A UI DA ERA DO GELO É RENDERIZADA FORA DO CANVAS 🔴 */}
+      {stage === "IceAge" && <IceAgeTransition />}
 
-        {/* BOTÃO DEV SKIP */}
-        <button
-          onClick={handleSkipPhase}
+      {/* 🔴 ESCONDEMOS O HUD DURANTE A ERA DO GELO PARA IMERSÃO TOTAL 🔴 */}
+      {stage !== "IceAge" && (
+        <div
           style={{
-            pointerEvents: "auto",
-            background: "rgba(255, 0, 50, 0.7)",
-            backdropFilter: "blur(4px)",
+            position: "absolute",
+            top: 12,
+            left: 12,
+            right: 12,
             color: "white",
-            border: "1px solid rgba(255,255,255,0.3)",
-            borderRadius: "8px",
-            padding: "8px 16px",
-            cursor: "pointer",
-            fontWeight: "bold",
-            fontSize: "12px",
-            letterSpacing: "1px",
+            zIndex: 999,
+            pointerEvents: "none",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
           }}
         >
-          ⏭ SKIP
-        </button>
-      </div>
+          <div>
+            <h1
+              style={{
+                margin: 0,
+                textTransform: "uppercase",
+                fontSize: "clamp(0.85rem, 3.5vw, 1.5rem)",
+                lineHeight: 1.2,
+              }}
+            >
+              {FASE_TITLES[faseAtual]}
+            </h1>
+            {faseAtual === 0 && (
+              <div
+                style={{
+                  maxWidth: "300px",
+                  width: "70%",
+                  height: "8px",
+                  background: "rgba(255,255,255,0.1)",
+                  marginTop: "8px",
+                  borderRadius: "4px",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${energiaHUD}%`,
+                    height: "100%",
+                    background: "linear-gradient(90deg, #ff8800, #00ff88)",
+                    transition: "width 0.3s",
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={handleSkipPhase}
+            style={{
+              pointerEvents: "auto",
+              background: "rgba(255, 0, 50, 0.7)",
+              backdropFilter: "blur(4px)",
+              color: "white",
+              border: "1px solid rgba(255,255,255,0.3)",
+              borderRadius: "8px",
+              padding: "8px 16px",
+              cursor: "pointer",
+              fontWeight: "bold",
+              fontSize: "12px",
+              letterSpacing: "1px",
+            }}
+          >
+            ⏭ SKIP
+          </button>
+        </div>
+      )}
 
       <Canvas
         camera={{ position: [0, 0, 10] }}
@@ -179,6 +193,16 @@ export default function App() {
           )}
           {faseAtual === 1 && <FaseOceano />}
           {faseAtual === 2 && <FasePangea />}
+
+          {/* 🔴 O MUNDO 3D CONGELADO APARECE AQUI NA FASE 3 */}
+          {faseAtual === 3 && <FaseGlacial />}
+
+          {/* 🔴 AQUI ENTRARÁ O NOSSO HADEANO REAPROVEITADO PARA A TERRA MODERNA */}
+          {faseAtual === 4 && (
+            <group>
+              {/* O componente FaseHumanidade entrará aqui em breve */}
+            </group>
+          )}
         </Suspense>
       </Canvas>
     </>
