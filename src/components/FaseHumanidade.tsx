@@ -1,59 +1,156 @@
 import { useEffect, useState, useRef } from "react";
-import { useThree } from "@react-three/fiber"; // 🔴 O useFrame fantasma foi removido daqui
+import { useThree } from "@react-three/fiber";
 import { Stars, OrbitControls, Html } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
 import { PlanetaModerno } from "./PlanetaModerno";
 
+// 🔴 AS 5 JORNADAS DA BIOLOGIA (Coordenadas reais e cores Neon)
 const JOURNEYS = [
-  {
-    id: "einstein",
-    title: "A Relatividade Geral",
-    year: "1905 - 1915",
-    color: "#00ffff",
-    desc: "A jornada intelectual de Einstein redefinindo a gravidade e o tempo através da Europa e Américas.",
-    steps: [
-      {
-        year: "1905",
-        event: "Anos Milagrosos (Berna)",
-        lat: 46.948,
-        lon: 7.4474,
-      },
-      { year: "1911", event: "Professor em Praga", lat: 50.0755, lon: 14.4378 },
-      { year: "1914", event: "Diretor em Berlim", lat: 52.52, lon: 13.405 },
-      {
-        year: "1933",
-        event: "Refúgio em Princeton",
-        lat: 40.3573,
-        lon: -74.6672,
-      },
-    ],
-  },
   {
     id: "darwin",
     title: "A Origem das Espécies",
-    year: "1831 - 1836",
-    color: "#ff00ff",
-    desc: "A expedição do HMS Beagle que coletou as evidências fundamentais para a teoria da evolução.",
+    year: "1831 - 1859",
+    color: "#ff00ff", // Magenta
+    desc: "A histórica expedição que decodificou a árvore da vida e revelou o motor silencioso da natureza: a Seleção Natural.",
     steps: [
       {
         year: "1831",
-        event: "Partida de Plymouth",
+        event: "Zarpando para o Desconhecido",
         lat: 50.3755,
         lon: -4.1427,
       },
       {
         year: "1832",
-        event: "Passagem por Salvador",
+        event: "Imersão nos Trópicos (Bahia)",
         lat: -12.9714,
         lon: -38.5014,
       },
-      { year: "1835", event: "Ilhas Galápagos", lat: -0.8293, lon: -90.9821 },
       {
-        year: "1836",
-        event: "Retorno à Inglaterra",
+        year: "1835",
+        event: "O Laboratório Natural (Galápagos)",
+        lat: -0.8293,
+        lon: -90.9821,
+      },
+      {
+        year: "1859",
+        event: "A Síntese da Evolução (Londres)",
         lat: 51.5074,
         lon: -0.1278,
+      },
+    ],
+  },
+  {
+    id: "fleming",
+    title: "A Era dos Antibióticos",
+    year: "1928 - 1945",
+    color: "#00ff88", // Verde Neon (Lembrando o fungo Penicillium)
+    desc: "A descoberta acidental que derrotou infecções milenares e dobrou a expectativa de vida humana.",
+    steps: [
+      {
+        year: "1928",
+        event: "O Fungo Milagroso (St. Mary's Hospital)",
+        lat: 51.5171,
+        lon: -0.1744,
+      },
+      {
+        year: "1940",
+        event: "Isolamento da Penicilina (Oxford)",
+        lat: 51.752,
+        lon: -1.2577,
+      },
+      {
+        year: "1943",
+        event: "Produção em Massa (EUA)",
+        lat: 40.7128,
+        lon: -74.006,
+      },
+      {
+        year: "1945",
+        event: "Prêmio Nobel de Medicina (Estocolmo)",
+        lat: 59.3293,
+        lon: 18.0686,
+      },
+    ],
+  },
+  {
+    id: "dna",
+    title: "O Código da Vida (DNA)",
+    year: "1951 - 1953",
+    color: "#00ffff", // Ciano
+    desc: "A corrida para desvendar a dupla hélice, a molécula que carrega o software de todos os seres vivos.",
+    steps: [
+      {
+        year: "1951",
+        event: "A Fotografia 51 de Rosalind Franklin",
+        lat: 51.5115,
+        lon: -0.116,
+      },
+      {
+        year: "1953",
+        event: "O Modelo da Dupla Hélice (Cambridge)",
+        lat: 52.2053,
+        lon: 0.1218,
+      },
+      {
+        year: "1962",
+        event: "O Reconhecimento Global (Nobel)",
+        lat: 59.3293,
+        lon: 18.0686,
+      },
+    ],
+  },
+  {
+    id: "genoma",
+    title: "O Projeto Genoma Humano",
+    year: "1990 - 2003",
+    color: "#ffaa00", // Laranja/Dourado
+    desc: "O esforço global e monumental para mapear os 3 bilhões de pares de bases do DNA humano.",
+    steps: [
+      {
+        year: "1990",
+        event: "Início do Projeto (NIH, Bethesda)",
+        lat: 38.9964,
+        lon: -77.1025,
+      },
+      {
+        year: "1999",
+        event: "1º Cromossomo Decodificado (Sanger Inst.)",
+        lat: 52.0805,
+        lon: 0.1856,
+      },
+      {
+        year: "2003",
+        event: "O Mapa Completo (Washington D.C.)",
+        lat: 38.8951,
+        lon: -77.0364,
+      },
+    ],
+  },
+  {
+    id: "crispr",
+    title: "A Edição Genética (CRISPR)",
+    year: "2012 - Presente",
+    color: "#ff3366", // Rosa Neon
+    desc: "A descoberta da tesoura molecular que nos permitiu, pela primeira vez, reescrever a própria biologia.",
+    steps: [
+      {
+        year: "2012",
+        event: "O Artigo Fundamental (UC Berkeley)",
+        lat: 37.8715,
+        lon: -122.273,
+      },
+      {
+        year: "2013",
+        event: "Edição em Células Humanas (Broad Inst.)",
+        lat: 42.3629,
+        lon: -71.0898,
+      },
+      {
+        year: "2020",
+        event: "A Consagração da Técnica (Nobel)",
+        lat: 59.3293,
+        lon: 18.0686,
       },
     ],
   },
@@ -68,10 +165,8 @@ export function FaseHumanidade() {
 
   useEffect(() => {
     scene.background = new THREE.Color("#000000");
-    camera.position.set(0, 5, 12); // Posição inicial épica
+    camera.position.set(0, 5, 12);
   }, [scene, camera]);
-
-  // O controle total fica com o usuário no OrbitControls abaixo.
 
   const activeJourney =
     activeJourneyIndex !== null ? JOURNEYS[activeJourneyIndex] : null;
@@ -80,7 +175,6 @@ export function FaseHumanidade() {
     <group>
       <OrbitControls
         ref={controlsRef}
-        // Gira sozinho apenas no menu principal. Se selecionar algo, o usuário assume o leme.
         autoRotate={activeJourneyIndex === null}
         autoRotateSpeed={0.5}
         enablePan={false}
@@ -102,7 +196,6 @@ export function FaseHumanidade() {
         speed={1}
       />
 
-      {/* ALINHAMENTO: Math.PI (180 graus) alinha Londres no centro do mapa 8K */}
       <PlanetaModerno
         activeJourney={activeJourney}
         rotation={[0, Math.PI, 0]}
@@ -123,8 +216,11 @@ export function FaseHumanidade() {
             borderRadius: "16px",
             border: "1px solid rgba(255, 255, 255, 0.1)",
             color: "white",
+            maxHeight: "80vh",
+            overflowY: "auto",
           }}
         >
+          {/* 🔴 TEXTOS REVISADOS */}
           <h2
             style={{
               margin: "0 0 5px 0",
@@ -135,12 +231,18 @@ export function FaseHumanidade() {
               textTransform: "uppercase",
             }}
           >
-            A Era da Informação
+            O Despertar da Consciência
           </h2>
           <p
-            style={{ margin: "0 0 30px 0", fontSize: "0.85rem", color: "#aaa" }}
+            style={{
+              margin: "0 0 30px 0",
+              fontSize: "0.85rem",
+              color: "#aaa",
+              lineHeight: 1.4,
+            }}
           >
-            Selecione uma jornada e gire o globo para encontrá-la.
+            Intercepte os filamentos de dados que reescreveram nossa compreensão
+            da vida. Selecione um marco e assuma o controle da órbita.
           </p>
 
           <div
@@ -189,44 +291,60 @@ export function FaseHumanidade() {
                   </div>
 
                   {isActive && (
-                    <div
-                      style={{
-                        marginTop: "20px",
-                        borderLeft: `2px solid ${journey.color}`,
-                        paddingLeft: "15px",
-                      }}
-                    >
-                      {journey.steps.map((step, sIdx) => (
-                        <div
-                          key={sIdx}
-                          style={{ marginBottom: "15px", position: "relative" }}
-                        >
+                    <div style={{ marginTop: "15px" }}>
+                      <p
+                        style={{
+                          fontSize: "0.8rem",
+                          color: "#ccc",
+                          marginBottom: "20px",
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {journey.desc}
+                      </p>
+                      <div
+                        style={{
+                          borderLeft: `2px solid ${journey.color}`,
+                          paddingLeft: "15px",
+                        }}
+                      >
+                        {journey.steps.map((step, sIdx) => (
                           <div
+                            key={sIdx}
                             style={{
-                              position: "absolute",
-                              left: "-21px",
-                              top: "4px",
-                              width: "10px",
-                              height: "10px",
-                              borderRadius: "50%",
-                              background: journey.color,
-                              boxShadow: `0 0 10px ${journey.color}`,
-                            }}
-                          />
-                          <div
-                            style={{
-                              fontSize: "0.7rem",
-                              color: "#88aadd",
-                              fontWeight: "bold",
+                              marginBottom: "15px",
+                              position: "relative",
                             }}
                           >
-                            {step.year}
+                            <div
+                              style={{
+                                position: "absolute",
+                                left: "-21px",
+                                top: "4px",
+                                width: "10px",
+                                height: "10px",
+                                borderRadius: "50%",
+                                background: journey.color,
+                                boxShadow: `0 0 10px ${journey.color}`,
+                              }}
+                            />
+                            <div
+                              style={{
+                                fontSize: "0.7rem",
+                                color: "#88aadd",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              {step.year}
+                            </div>
+                            <div
+                              style={{ fontSize: "0.85rem", color: "white" }}
+                            >
+                              {step.event}
+                            </div>
                           </div>
-                          <div style={{ fontSize: "0.85rem", color: "white" }}>
-                            {step.event}
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   )}
                 </button>
@@ -247,7 +365,7 @@ export function FaseHumanidade() {
                 textDecoration: "underline",
               }}
             >
-              Resetar Órbita
+              Desconectar Fio de Dados
             </button>
           )}
         </div>
