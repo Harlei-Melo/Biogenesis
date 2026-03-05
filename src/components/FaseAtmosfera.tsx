@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import type { ThreeEvent } from "@react-three/fiber";
-import { OrbitControls, Environment } from "@react-three/drei";
+import { OrbitControls } from "@react-three/drei";
 import {
   EffectComposer,
   Bloom,
@@ -15,7 +15,6 @@ import * as THREE from "three";
 import { PlanetaHadeano } from "./PlanetaHadeano";
 import { Raio } from "./RaioHighEnd";
 import { Sun } from "./Sun";
-import { StarLayer } from "./StarLayer";
 
 interface FaseAtmosferaProps {
   onFaseConcluida: () => void;
@@ -30,9 +29,15 @@ export function FaseAtmosfera({
   const [raios, setRaios] = useState<
     { id: number; pos: [number, number, number] }[]
   >([]);
-
-  // State para capturar a referência do Sol
   const [sunMesh, setSunMesh] = useState<THREE.Mesh | null>(null);
+
+  // 🔴 1. CÁLCULO DINÂMICO DA COR DA LUZ
+  // Conforme o planeta evolui, a luz muda de "Fogo" para "Sol Branco"
+  const sunLightColor = useMemo(() => {
+    const corHadeana = new THREE.Color("#ff5500"); // Laranja
+    const corOceano = new THREE.Color("#ffffff"); // Branco (necessário para o azul do mar não virar verde)
+    return corHadeana.lerp(corOceano, energiaLocal / 100);
+  }, [energiaLocal]);
 
   const [aberrationAmount, setAberration] = useState(0);
   const aberrationVector = useMemo(
@@ -64,8 +69,6 @@ export function FaseAtmosfera({
   return (
     <>
       <EffectComposer enableNormalPass={false} multisampling={0}>
-        {/* CORREÇÃO 1: Usamos ternário (? :) com Fragmento vazio (<></>) */}
-        {/* O EffectComposer odeia 'null', mas aceita '<></>' */}
         {sunMesh ? (
           <GodRays
             sun={sunMesh}
@@ -95,27 +98,34 @@ export function FaseAtmosfera({
           blendFunction={BlendFunction.NORMAL}
         />
 
-        {/* CORREÇÃO 2: Garantimos que Noise e Vignette estão renderizando corretamente */}
-        {/* Às vezes o TS se perde se eles estiverem implícitos, mas aqui deve funcionar */}
         <Noise opacity={0.06} />
         <Vignette eskil={false} offset={0.1} darkness={1.1} />
       </EffectComposer>
 
       <group>
-        {/* O 'ref' do Sun passa a malha para o estado 'sunMesh' */}
-        {/* @ts-ignore: O tipo do ref pode variar ligeiramente, ignoramos para simplificar */}
+        {/* @ts-ignore */}
         <Sun ref={setSunMesh} />
-        <StarLayer />
+
+        {/* 🔴 2. LUZ PRINCIPAL (O SOL) 
+            Fazemos ela ser direcional para criar reflexos nítidos. 
+            A cor transiciona para Branco para o oceano ficar azulzinho. */}
+        <directionalLight
+          position={[10, 10, 10]}
+          intensity={2.5}
+          color={sunLightColor}
+        />
       </group>
 
-      <ambientLight intensity={0.05} />
+      <ambientLight intensity={0.1} />
+
+      {/* 🔴 3. AJUSTE DO POINTLIGHT AZUL
+          Diminuímos a intensidade e suavizamos a cor para não "sujar" o Hadeano de verde. */}
       <pointLight
         position={[-20, -10, -10]}
-        intensity={1.0}
-        color="#2244ff"
+        intensity={0.5} // Reduzido para não dominar a cena
+        color="#4466ff" // Um azul mais suave
         distance={100}
       />
-      <Environment preset="night" />
 
       <group onClick={handleClick}>
         <PlanetaHadeano evolucao={energiaLocal / 100} />

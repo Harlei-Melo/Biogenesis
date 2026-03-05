@@ -82,7 +82,7 @@ export default function App() {
 
   const FASE_TITLES: Record<number, string> = {
     0: "Fase 1: Atmosfera",
-    1: "Fase 2: Sopa Primordial",
+    1: "Fase 2: A vida no Mar",
     2: "Fase 3: Terra Firme (Pangea)",
     3: "", // Era do gelo não tem título superior
     4: "Fase Final: Terra Moderna",
@@ -94,7 +94,8 @@ export default function App() {
 
       {stage === "IceAge" && <IceAgeTransition />}
 
-      {stage !== "IceAge" && (
+      {/* 🔴 A MÁGICA AQUI: Escondemos a UI na Era do Gelo E na Extinção (Meteoro) */}
+      {stage !== "IceAge" && stage !== "Extinction" && (
         <div
           style={{
             position: "absolute",
@@ -168,7 +169,6 @@ export default function App() {
       <Canvas camera={{ position: [0, 0, 10] }} dpr={1}>
         <color attach="background" args={["#020202"]} />
 
-        {/* 🔴 O SUSPENSE AGORA CHAMA DIRETAMENTE O GLOBAL LOADER */}
         <Suspense fallback={<GlobalLoader />}>
           {faseAtual === 0 && (
             <FaseAtmosfera
