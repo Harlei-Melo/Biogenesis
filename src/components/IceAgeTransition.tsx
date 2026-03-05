@@ -29,9 +29,9 @@ export function IceAgeTransition() {
     const answer = inputValue.toLowerCase().trim();
 
     if (
-      answer === "humano" ||
+      answer === "mamiferos" ||
       answer === "humanos" ||
-      answer === "homo sapiens"
+      answer === "humano"
     ) {
       setError(false);
       setStep(3); // Inicia o Loading
